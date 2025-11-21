@@ -9,9 +9,14 @@ import SwiftUI
 
 @main
 struct MacAfkApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(appModel: appDelegate.appModel)
+        }
+        .commands {
+            // Add standard commands if needed
         }
     }
 }
