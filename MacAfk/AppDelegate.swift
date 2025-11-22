@@ -10,7 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "sleep", accessibilityDescription: "MacAfk")
+            button.image = NSImage(systemSymbolName: "sleep", accessibilityDescription: "MacAfk Pro")
             button.action = #selector(toggleMenu)
         }
         
@@ -61,7 +61,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.items[1].state = appModel.isLowBrightness ? .on : .off
         
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: appModel.isJiggling ? "sleep.circle.fill" : "sleep", accessibilityDescription: "MacAfk")
+            button.image = NSImage(systemSymbolName: appModel.isJiggling ? "sleep.circle.fill" : "sleep", accessibilityDescription: "MacAfk Pro")
         }
     }
     
