@@ -50,7 +50,7 @@ class BrightnessControl: ObservableObject {
     
     func setLowestBrightness() {
         previousBrightness = getAppleBrightness()
-        setAppleBrightness(value: 0.01)
+        setAppleBrightness(value: 0)
     }
     
     func restoreBrightness() {
