@@ -412,6 +412,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snowywar.MacAfk;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -447,6 +448,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snowywar.MacAfk;
 				PRODUCT_NAME = "MacAfk Pro";
@@ -543,42 +545,42 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-	2B62EE852ED03F0E00FC811E /* Build configuration list for PBXProject "MacAfk" */ = {
-		isa = XCConfigurationList;
-		buildConfigurations = (
-			2B62EEA92ED03F0F00FC811E /* Debug */,
-			2B62EEAA2ED03F0F00FC811E /* Release */,
-		);
-		defaultConfigurationIsVisible = 0;
-		defaultConfigurationName = Release;
-	};
-	2B62EEAB2ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfk" */ = {
-		isa = XCConfigurationList;
-		buildConfigurations = (
-			2B62EEAC2ED03F0F00FC811E /* Debug */,
-			2B62EEAD2ED03F0F00FC811E /* Release */,
-		);
-		defaultConfigurationIsVisible = 0;
-		defaultConfigurationName = Release;
-	};
-	2B62EEAE2ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfkTests" */ = {
-		isa = XCConfigurationList;
-		buildConfigurations = (
-			2B62EEAF2ED03F0F00FC811E /* Debug */,
-			2B62EEB02ED03F0F00FC811E /* Release */,
-		);
-		defaultConfigurationIsVisible = 0;
-		defaultConfigurationName = Release;
-	};
-	2B62EEB12ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfkUITests" */ = {
-		isa = XCConfigurationList;
-		buildConfigurations = (
-			2B62EEB22ED03F0F00FC811E /* Debug */,
-			2B62EEB32ED03F0F00FC811E /* Release */,
-		);
-		defaultConfigurationIsVisible = 0;
-		defaultConfigurationName = Release;
-	};
+		2B62EE852ED03F0E00FC811E /* Build configuration list for PBXProject "MacAfk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B62EEA92ED03F0F00FC811E /* Debug */,
+				2B62EEAA2ED03F0F00FC811E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2B62EEAB2ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B62EEAC2ED03F0F00FC811E /* Debug */,
+				2B62EEAD2ED03F0F00FC811E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2B62EEAE2ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfkTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B62EEAF2ED03F0F00FC811E /* Debug */,
+				2B62EEB02ED03F0F00FC811E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2B62EEB12ED03F0F00FC811E /* Build configuration list for PBXNativeTarget "MacAfkUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B62EEB22ED03F0F00FC811E /* Debug */,
+				2B62EEB32ED03F0F00FC811E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = 2B62EE822ED03F0E00FC811E /* Project object */;
