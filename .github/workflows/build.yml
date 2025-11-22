@@ -115,7 +115,10 @@ jobs:
         xcodebuild test \
           -scheme MacAfk \
           -destination 'platform=macOS' \
-          -enableCodeCoverage YES
+          -enableCodeCoverage YES \
+          CODE_SIGN_IDENTITY="-" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
     
     - name: 生成测试报告
       if: always()
