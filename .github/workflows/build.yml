@@ -41,7 +41,7 @@ jobs:
         echo "VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo '1.0.0-dev')" >> $GITHUB_ENV
     
     - name: 缓存构建产物
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/Library/Caches/org.swift.swiftpm
@@ -89,7 +89,7 @@ jobs:
         echo "✅ 构建成功：MacAfk ${{ matrix.variant }} (${{ matrix.arch }})"
     
     - name: 上传构建产物
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: MacAfk-${{ matrix.variant }}-${{ matrix.arch }}
         path: Build/${{ matrix.variant }}-${{ matrix.arch }}/*.app
