@@ -7,7 +7,7 @@ set -e
 
 # 配置
 APP_NAME="MacAfk"
-PUBLIC_REPO="jiayuqi7813/macAFK"  # 请修改为实际的仓库地址
+PUBLIC_REPO="jiayuqi7813/macAFK-Pro"  # 请修改为实际的仓库地址
 
 # 颜色输出
 RED='\033[0;31m'
