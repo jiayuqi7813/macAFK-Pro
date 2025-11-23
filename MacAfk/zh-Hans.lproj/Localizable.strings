@@ -75,3 +75,11 @@
 "language.english" = "English";
 "language.chinese" = "简体中文";
 
+// Low Brightness Settings
+"settings.low_brightness" = "低亮度设置";
+"settings.brightness_level" = "亮度级别";
+"settings.preview_brightness" = "预览";
+"settings.stop_preview" = "停止预览";
+"settings.restore_brightness" = "恢复";
+"settings.brightness_preview_hint" = "使用滑块调整亮度级别。点击预览按钮可测试亮度效果。";
+

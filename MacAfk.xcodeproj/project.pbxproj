@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		2B62EE8A2ED03F0E00FC811E /* MacAfk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacAfk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B62EE8A2ED03F0E00FC811E /* MacAfk Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MacAfk Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B62EE972ED03F0F00FC811E /* MacAfkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacAfkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B62EEA12ED03F0F00FC811E /* MacAfkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacAfkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,7 +85,7 @@
 		2B62EE8B2ED03F0E00FC811E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2B62EE8A2ED03F0E00FC811E /* MacAfk.app */,
+				2B62EE8A2ED03F0E00FC811E /* MacAfk Pro.app */,
 				2B62EE972ED03F0F00FC811E /* MacAfkTests.xctest */,
 				2B62EEA12ED03F0F00FC811E /* MacAfkUITests.xctest */,
 			);
@@ -114,7 +114,7 @@
 			packageProductDependencies = (
 			);
 			productName = MacAfk;
-			productReference = 2B62EE8A2ED03F0E00FC811E /* MacAfk.app */;
+			productReference = 2B62EE8A2ED03F0E00FC811E /* MacAfk Pro.app */;
 			productType = "com.apple.product-type.application";
 		};
 		2B62EE962ED03F0F00FC811E /* MacAfkTests */ = {
@@ -322,10 +322,10 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-			GCC_WARN_UNUSED_VARIABLE = YES;
-			LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-			MACOSX_DEPLOYMENT_TARGET = 14.6;
-			MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -380,10 +380,10 @@
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-			GCC_WARN_UNUSED_VARIABLE = YES;
-			LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-			MACOSX_DEPLOYMENT_TARGET = 14.6;
-			MTL_ENABLE_DEBUG_INFO = NO;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -413,7 +413,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snowywar.MacAfk;
 				PRODUCT_NAME = "MacAfk Pro";
 				REGISTER_APP_GROUPS = YES;
@@ -449,7 +449,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snowywar.MacAfk;
 				PRODUCT_NAME = "MacAfk Pro";
 				REGISTER_APP_GROUPS = YES;

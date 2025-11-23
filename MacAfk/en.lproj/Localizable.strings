@@ -75,3 +75,11 @@
 "language.english" = "English";
 "language.chinese" = "简体中文";
 
+// Low Brightness Settings
+"settings.low_brightness" = "Low Brightness Settings";
+"settings.brightness_level" = "Brightness Level";
+"settings.preview_brightness" = "Preview";
+"settings.stop_preview" = "Stop Preview";
+"settings.restore_brightness" = "Restore";
+"settings.brightness_preview_hint" = "Use the slider to adjust brightness level. Click Preview to test the brightness.";
+

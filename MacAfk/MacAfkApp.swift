@@ -20,6 +20,7 @@ struct MacAfkApp: App {
                 .sheet(isPresented: $showingPreferences) {
                     PreferencesView()
                         .environmentObject(languageManager)
+                        .environmentObject(appDelegate.appModel)
                 }
         }
         .commands {

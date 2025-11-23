@@ -11,6 +11,13 @@ class AppModel: ObservableObject {
             }
         }
     }
+    @Published var lowBrightnessLevel: Float = 0.0 {  // 低亮度模式的亮度值（0.0 - 1.0）
+        didSet {
+            if !isLoading {
+                saveLowBrightnessLevel()
+            }
+        }
+    }
     @Published var testBrightness: Float = 0.5  // 测试用的亮度值（0.0 - 1.0）
     
     // 子对象：使用普通属性 + Combine 订阅
@@ -23,10 +30,12 @@ class AppModel: ObservableObject {
     
     // 持久化相关
     private let lowBrightnessKey = "app.lowBrightnessMode"
+    private let lowBrightnessLevelKey = "app.lowBrightnessLevel"
     private var isLoading = false
     
     init() {
         loadLowBrightnessMode()
+        loadLowBrightnessLevel()
         // 订阅 jiggler 的变化，转发给 AppModel
         jiggler.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
@@ -70,7 +79,7 @@ class AppModel: ObservableObject {
         if isJiggling {
             jiggler.start()
             if isLowBrightness {
-                brightnessControl.setLowestBrightness()
+                brightnessControl.setLowestBrightness(level: lowBrightnessLevel)
             }
         } else {
             jiggler.stop()
@@ -85,7 +94,7 @@ class AppModel: ObservableObject {
         // 立即应用亮度变化（如果正在运行）
         if isJiggling {
             if isLowBrightness {
-                brightnessControl.setLowestBrightness()
+                brightnessControl.setLowestBrightness(level: lowBrightnessLevel)
             } else {
                 brightnessControl.restoreBrightness()
             }
@@ -132,5 +141,22 @@ class AppModel: ObservableObject {
         let savedValue = UserDefaults.standard.bool(forKey: lowBrightnessKey)
         isLowBrightness = savedValue
         print("📖 [AppModel] 已加载低亮度模式状态: \(isLowBrightness)")
+    }
+    
+    /// 保存低亮度级别到 UserDefaults
+    private func saveLowBrightnessLevel() {
+        UserDefaults.standard.set(lowBrightnessLevel, forKey: lowBrightnessLevelKey)
+        print("💾 [AppModel] 已保存低亮度级别: \(Int(lowBrightnessLevel * 100))%")
+    }
+    
+    /// 从 UserDefaults 加载低亮度级别
+    private func loadLowBrightnessLevel() {
+        isLoading = true
+        defer { isLoading = false }
+        
+        let savedValue = UserDefaults.standard.float(forKey: lowBrightnessLevelKey)
+        // 如果没有保存的值（首次启动），使用默认值 0.0
+        lowBrightnessLevel = savedValue == 0 && !UserDefaults.standard.dictionaryRepresentation().keys.contains(lowBrightnessLevelKey) ? 0.0 : savedValue
+        print("📖 [AppModel] 已加载低亮度级别: \(Int(lowBrightnessLevel * 100))%")
     }
 }

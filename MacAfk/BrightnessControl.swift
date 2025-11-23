@@ -48,9 +48,9 @@ class BrightnessControl: ObservableObject {
     
     // MARK: - Public Methods
     
-    func setLowestBrightness() {
+    func setLowestBrightness(level: Float = 0.0) {
         previousBrightness = getAppleBrightness()
-        setAppleBrightness(value: 0)
+        setAppleBrightness(value: level)
     }
     
     func restoreBrightness() {
