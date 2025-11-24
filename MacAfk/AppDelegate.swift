@@ -6,6 +6,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var appModel = AppModel()
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // 隐藏 Dock 图标，只在状态栏显示
+        NSApp.setActivationPolicy(.accessory)
+        
         // Create the status item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
@@ -16,6 +19,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create the menu
         constructMenu()
+    }
+    
+    // 关闭窗口后不退出应用，继续在后台运行
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
     }
     
     @objc func toggleMenu() {
