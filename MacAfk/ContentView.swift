@@ -110,6 +110,10 @@ struct ContentView: View {
                 Toggle("settings.low_brightness_mode".localized, isOn: $appModel.isLowBrightness)
                     .toggleStyle(.switch)
                     .help("settings.low_brightness_mode.help".localized)
+                
+                Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
+                    .toggleStyle(.switch)
+                    .help("settings.launch_at_login.help".localized)
             }
             .padding()
             .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor)))

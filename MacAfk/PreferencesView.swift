@@ -77,12 +77,41 @@ struct PreferencesView: View {
     private var contentScrollView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                generalSection
                 brightnessSection
                 languageSection
                 updateSection
             }
             .padding()
         }
+    }
+    
+    // MARK: - General Section
+    
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "gearshape.fill")
+                    .foregroundColor(.gray)
+                    .font(.title3)
+                
+                Text("settings.macafk_settings".localized)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
+                    .toggleStyle(.switch)
+                    .help("settings.launch_at_login.help".localized)
+            }
+            .padding(.leading, 32)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
     
     // MARK: - Brightness Section
