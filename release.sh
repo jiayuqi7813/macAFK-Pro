@@ -73,6 +73,11 @@ MacAfk 发布脚本
   - 推荐在 main 分支上发布
   - 确保所有更改已提交
   - 标签推送后将自动触发构建和发布
+
+用户安装提示:
+  如果用户遇到"文件损坏"错误，这是 macOS Gatekeeper 安全机制导致的。
+  解决方法：在终端运行以下命令移除隔离属性：
+    xattr -cr /Applications/MacAfk\ Pro.app/
 EOF
 }
 
@@ -336,6 +341,11 @@ show_release_info() {
     echo "   - 可在 Actions 页面实时查看构建进度"
     echo "   - 构建失败时可在 Actions 页面查看日志"
     echo "   - Release 创建后会收到 GitHub 通知"
+    echo ""
+    print_warning "⚠️  用户安装说明:"
+    echo "   如果用户遇到"文件损坏"错误，请在终端运行："
+    echo "   xattr -cr /Applications/MacAfk\\ Pro.app/"
+    echo "   这是 macOS Gatekeeper 安全机制，应用未公证以符合规范"
     echo ""
     print_header "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }

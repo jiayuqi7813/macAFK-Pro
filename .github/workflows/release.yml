@@ -113,8 +113,13 @@ jobs:
         ---
         
         **系统要求**：macOS 14.6 或更高版本
-        
+        **安装说明**：如果用户遇到"文件损坏"错误，请在终端运行：
+        ```bash
+        xattr -cr /Applications/MacAfk\ Pro.app/
+        ```
+        这是 macOS Gatekeeper 安全机制，应用未公证以符合规范
         **注意**：如果需要 App Store 版本，请访问 [MacAfk Lite 仓库](https://github.com/jiayuqi7813/macAFK-lite)
+
         EOF
         
         echo "release_notes<<EOF" >> $GITHUB_OUTPUT

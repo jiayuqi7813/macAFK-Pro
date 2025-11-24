@@ -191,6 +191,13 @@ MacAfk
 
 ## ❓ 常见问题
 
+### Q: 从 GitHub Release 下载安装时提示"文件损坏"？
+A: 这是 macOS Gatekeeper 安全机制导致的。由于应用未进行公证（以符合 App Store 规范），需要移除隔离属性。请在终端运行以下命令：
+```bash
+xattr -cr /Applications/MacAfk\ Pro.app/
+```
+然后再次尝试打开应用。或者，你也可以右键点击应用选择"打开"，而不是直接双击。
+
 ### Q: 快捷键不工作？
 A: 请确保已在「系统设置」→「隐私与安全性」→「辅助功能」中授予 MacAfk 权限。
 

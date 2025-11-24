@@ -8,10 +8,6 @@
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-<p align="center">
-  <a href="README.md">English</a> | <a href="README_CN.md">中文</a>
-</p>
-
 > Most enterprise macOS computers are managed via MDM, which prevents users from modifying screen lock settings. Additionally, many people now delegate tasks to LLM Agents and then... take a break. However, screen lock can cause AI agent tasks to fail, which is why this tool was developed.
 
 > You can safely run it, and it will prevent the system from entering sleep mode through subtle (imperceptible) mouse movements.
@@ -192,13 +188,6 @@ Contributions, issues, and feature requests are welcome!
 ---
 
 ## ❓ FAQ
-
-### Q: "File is damaged" error when installing from GitHub Release?
-A: This is a macOS Gatekeeper security feature. Since the app is not notarized (to comply with App Store guidelines), you need to remove the quarantine attribute. Run this command in Terminal:
-```bash
-xattr -cr /Applications/MacAfk\ Pro.app/
-```
-Then try opening the app again. Alternatively, you can right-click the app and select "Open" instead of double-clicking.
 
 ### Q: Shortcuts not working?
 A: Please ensure MacAfk has been granted permission in "System Settings" → "Privacy & Security" → "Accessibility".
