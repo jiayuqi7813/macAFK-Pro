@@ -53,6 +53,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("UpdateStatusChanged"),
             object: nil
         )
+        
+        // 监听 AppModel 状态变化，实时更新菜单栏图标
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appModelStateChanged),
+            name: NSNotification.Name("AppModelStateChanged"),
+            object: nil
+        )
     }
     
     // 关闭窗口后不退出应用，继续在后台运行
@@ -110,6 +118,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         constructMenu()
     }
     
+    @objc func appModelStateChanged() {
+        // AppModel 状态改变时更新菜单和图标
+        updateMenu()
+    }
+    
     @objc func checkForUpdates() {
         updateManager.checkForUpdates(silent: false)
     }
@@ -125,8 +138,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 显示窗口前，将激活策略改为 regular，以便菜单栏正常显示
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first {
-            window.makeKeyAndOrderFront(nil)
+        
+        // 查找真正的应用主窗口，排除状态栏窗口和其他系统窗口
+        if let mainWindow = NSApp.windows.first(where: { window in
+            // 排除状态栏窗口和不能成为主窗口的窗口
+            return window.canBecomeKey && !window.className.contains("StatusBar")
+        }) {
+            mainWindow.makeKeyAndOrderFront(nil)
+            mainWindow.center()
+        } else {
+            // 如果没有找到现有窗口，可能需要创建一个新窗口
+            print("⚠️ 未找到可显示的主窗口")
         }
     }
     

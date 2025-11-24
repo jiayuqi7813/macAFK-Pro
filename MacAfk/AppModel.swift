@@ -87,6 +87,9 @@ class AppModel: ObservableObject {
                 brightnessControl.restoreBrightness()
             }
         }
+        
+        // 通知 AppDelegate 状态已改变
+        NotificationCenter.default.post(name: NSNotification.Name("AppModelStateChanged"), object: nil)
     }
     
     func toggleBrightnessMode() {
@@ -99,6 +102,9 @@ class AppModel: ObservableObject {
                 brightnessControl.restoreBrightness()
             }
         }
+        
+        // 通知 AppDelegate 状态已改变
+        NotificationCenter.default.post(name: NSNotification.Name("AppModelStateChanged"), object: nil)
     }
     
     // MARK: - 低亮度模式切换（支持快捷键）
