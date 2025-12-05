@@ -7,6 +7,21 @@
 
 ## [Unreleased]
 
+### Fixed
+- 🐛 **修复窗口关闭后 Dock 图标无法移除的问题**
+  - 移除 WindowGroup，改用程序化窗口管理
+  - 修复窗口关闭时 Dock 图标无法正确隐藏的 bug
+  - 解决屏幕中间出现透明不可见区域无法点击的问题
+  - 恢复主窗口（ContentView）和设置窗口（NewPreferencesView）的分离
+  - 优化窗口生命周期管理，确保窗口关闭后正确清理
+
+### Changed
+- 🏗️ **重构窗口管理架构**
+  - 从 WindowGroup 改为程序化创建 NSWindow
+  - 主窗口和设置窗口独立管理，互不干扰
+  - 使用 NSWindowDelegate 精确控制窗口关闭事件
+  - 改进窗口关闭时的 Dock 图标隐藏逻辑
+
 ## [1.0.3] - 2025-11-25
 
 ### Added
