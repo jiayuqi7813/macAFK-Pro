@@ -7,6 +7,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let languageManager = LanguageManager.shared
     private let updateManager = UpdateManager.shared
     private let permissionManager = AccessibilityPermissionManager.shared
+    private var mainWindow: NSWindow?
+    private var preferencesWindow: NSWindow?
     
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // 初始状态：隐藏 Dock 图标，只在状态栏显示
@@ -27,22 +29,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Create the menu (不自动弹出)
         constructMenu()
-        
-        // 监听窗口关闭事件，以便在窗口关闭时隐藏Dock图标
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowWillClose(_:)),
-            name: NSWindow.willCloseNotification,
-            object: nil
-        )
-        
-        // 监听窗口显示事件，确保窗口显示时激活策略为regular
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(windowDidBecomeKey(_:)),
-            name: NSWindow.didBecomeKeyNotification,
-            object: nil
-        )
         
         // 监听语言切换事件，更新菜单
         NotificationCenter.default.addObserver(
@@ -103,6 +89,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: languageManager.localizedString(for: "menu.show_main_window"), action: #selector(showMainWindow), keyEquivalent: "w"))
+        menu.addItem(NSMenuItem(title: languageManager.localizedString(for: "menu.preferences"), action: #selector(showPreferences), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: languageManager.localizedString(for: "update.check_for_updates"), action: #selector(checkForUpdates), keyEquivalent: "u"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: languageManager.localizedString(for: "button.quit"), action: #selector(quit), keyEquivalent: "q"))
@@ -153,44 +140,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func showMainWindow() {
-        // 显示窗口前，将激活策略改为 regular，以便菜单栏正常显示
+        // 显示窗口前，将激活策略改为 regular，以便显示 Dock 图标和菜单栏
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         
-        // 查找真正的应用主窗口，排除状态栏窗口和其他系统窗口
-        if let mainWindow = NSApp.windows.first(where: { window in
-            // 排除状态栏窗口和不能成为主窗口的窗口
-            return window.canBecomeKey && !window.className.contains("StatusBar")
-        }) {
-            mainWindow.makeKeyAndOrderFront(nil)
-            mainWindow.center()
-        } else {
-            // 如果没有找到现有窗口，可能需要创建一个新窗口
-            print("⚠️ 未找到可显示的主窗口")
+        // 如果已有主窗口，显示它
+        if let window = mainWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
         }
+        
+        // 创建新的主窗口
+        createMainWindow()
     }
     
-    @objc func windowDidBecomeKey(_ notification: Notification) {
-        // 窗口成为主窗口时，确保激活策略为regular，以便菜单栏正常显示
+    @objc func showPreferences() {
+        // 显示窗口前，将激活策略改为 regular，以便显示 Dock 图标和菜单栏
         NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        
+        // 如果已有设置窗口，显示它
+        if let window = preferencesWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+        
+        // 创建新的设置窗口
+        createPreferencesWindow()
     }
     
-    @objc func windowWillClose(_ notification: Notification) {
-        // 延迟检查，确保窗口关闭事件完成
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            // 检查是否还有可见的应用窗口（不包括菜单等系统窗口）
-            let visibleWindows = NSApp.windows.filter { window in
-                window.isVisible && window.canBecomeKey
-            }
-            
-            if visibleWindows.isEmpty {
-                // 所有窗口关闭后，隐藏 Dock 图标，但保持 accessory 状态以接收全局事件
-                NSApp.setActivationPolicy(.accessory)
-                
-                // 确保快捷键监听器仍然活跃
-                print("ℹ️ [AppDelegate] 窗口已关闭，应用在后台运行，快捷键监听保持活跃")
-            }
-        }
+    private func createMainWindow() {
+        // 创建 SwiftUI 主视图
+        let contentView = ContentView(appModel: appModel)
+            .environmentObject(languageManager)
+        
+        // 创建托管窗口
+        let hostingController = NSHostingController(rootView: contentView)
+        
+        // 创建窗口
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = languageManager.localizedString(for: "app.name")
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.isReleasedWhenClosed = false // 窗口关闭时不释放
+        window.center()
+        window.setFrameAutosaveName("MainWindow")
+        
+        // 设置窗口代理以监听关闭事件
+        window.delegate = self
+        
+        self.mainWindow = window
+        window.makeKeyAndOrderFront(nil)
+    }
+    
+    private func createPreferencesWindow() {
+        // 创建 SwiftUI 设置视图
+        let contentView = NewPreferencesView()
+            .environmentObject(languageManager)
+            .environmentObject(appModel)
+        
+        // 创建托管窗口
+        let hostingController = NSHostingController(rootView: contentView)
+        
+        // 创建窗口
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = languageManager.localizedString(for: "menu.preferences")
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.isReleasedWhenClosed = false // 窗口关闭时不释放
+        window.center()
+        window.setFrameAutosaveName("PreferencesWindow")
+        
+        // 设置窗口代理以监听关闭事件
+        window.delegate = self
+        
+        self.preferencesWindow = window
+        window.makeKeyAndOrderFront(nil)
     }
     
     @objc func quit() {
@@ -241,5 +264,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         image.size = NSSize(width: 24, height: 24)
         
         return image
+    }
+}
+
+// MARK: - NSWindowDelegate
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        // 处理我们的主窗口或设置窗口
+        guard let window = notification.object as? NSWindow else {
+            return
+        }
+        
+        // 检查是否是我们管理的窗口
+        guard window == mainWindow || window == preferencesWindow else {
+            return
+        }
+        
+        // 延迟检查，确保窗口关闭事件完成
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self = self else { return }
+            
+            // 检查是否还有可见的应用窗口（不包括菜单等系统窗口）
+            let visibleWindows = NSApp.windows.filter { window in
+                window.isVisible && window.canBecomeKey && !window.className.contains("StatusBar")
+            }
+            
+            if visibleWindows.isEmpty {
+                // 所有窗口关闭后，隐藏 Dock 图标，但保持 accessory 状态以接收全局事件
+                NSApp.setActivationPolicy(.accessory)
+                
+                // 确保快捷键监听器仍然活跃
+                print("ℹ️ [AppDelegate] 所有窗口已关闭，应用在后台运行，快捷键监听保持活跃")
+            }
+        }
     }
 }
