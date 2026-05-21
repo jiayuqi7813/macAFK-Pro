@@ -109,8 +109,23 @@ jobs:
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: latest-stable
+
+    - name: 检查测试运行环境
+      id: test_env
+      run: |
+        MACOS_VERSION="$(sw_vers -productVersion)"
+        MACOS_MAJOR="${MACOS_VERSION%%.*}"
+
+        echo "macos_version=$MACOS_VERSION" >> "$GITHUB_OUTPUT"
+        if [ "$MACOS_MAJOR" -ge 26 ]; then
+          echo "can_run_tests=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "can_run_tests=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::跳过测试：当前 GitHub runner 是 macOS $MACOS_VERSION，低于 MacAfk 的 macOS 26.0 deployment target；前置 build job 仍会校验编译和导出。"
+        fi
     
     - name: 运行单元测试
+      if: steps.test_env.outputs.can_run_tests == 'true'
       run: |
         xcodebuild test \
           -scheme MacAfk \
@@ -123,5 +138,8 @@ jobs:
     - name: 生成测试报告
       if: always()
       run: |
-        echo "测试完成"
-
+        if [ "${{ steps.test_env.outputs.can_run_tests }}" = "true" ]; then
+          echo "测试完成"
+        else
+          echo "测试已跳过：runner macOS ${{ steps.test_env.outputs.macos_version }} 低于 deployment target 26.0"
+        fi
