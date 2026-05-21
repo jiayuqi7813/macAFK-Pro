@@ -1,266 +1,617 @@
 import SwiftUI
 
-// 快捷键显示行组件
-struct ShortcutRow: View {
-    let icon: String
-    let title: String
-    let shortcut: String
-    let color: Color
-    
+struct ContentView: View {
+    @ObservedObject var appModel: AppModel
+
+    @State private var showingShortcutEditor = false
+    @AccessibilityFocusState private var shortcutEditorTriggerFocused: Bool
+
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(color)
-                .frame(width: 20)
-            
+        ScrollView {
+            GlassEffectContainer(spacing: 22) {
+                VStack(alignment: .leading, spacing: 22) {
+                    StatusHeroCard(
+                        isJiggling: appModel.isJiggling,
+                        title: statusTitle
+                    )
+
+                    MainSettingsCard(appModel: appModel)
+
+                    AgentActivityCard(appModel: appModel)
+
+                    ShortcutSummaryCard(
+                        shortcutManager: appModel.shortcutManager,
+                        customizeAction: { showingShortcutEditor = true },
+                        customizeFocused: $shortcutEditorTriggerFocused
+                    )
+
+                    PermissionHintFooter()
+                }
+            }
+            .frame(maxWidth: 520, alignment: .top)
+            .padding(.horizontal, 28)
+            .padding(.top, 18)
+            .padding(.bottom, 26)
+            .frame(maxWidth: .infinity, alignment: .top)
+        }
+        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .frame(width: 480)
+        .frame(minHeight: 620)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    NotificationCenter.default.post(name: .showPreferencesRequested, object: nil)
+                } label: {
+                    Label("menu.preferences".localized, systemImage: "gearshape")
+                }
+                .labelStyle(.iconOnly)
+                .help("menu.preferences".localized)
+                .accessibilityLabel("menu.preferences".localized)
+            }
+        }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .sheet(isPresented: $showingShortcutEditor) {
+            ShortcutEditorView(shortcutManager: appModel.shortcutManager)
+                .presentationSizing(.form)
+                .onDisappear {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(100))
+                        shortcutEditorTriggerFocused = true
+                    }
+                }
+        }
+    }
+
+    private var statusTitle: String {
+        appModel.isJiggling
+            ? "status.preventing_sleep".localized
+            : "status.system_sleep_allowed".localized
+    }
+}
+
+private struct StatusHeroCard: View {
+    let isJiggling: Bool
+    let title: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ScaledMetric(relativeTo: .largeTitle) private var iconSize: CGFloat = 56
+
+    var body: some View {
+        VStack(spacing: 12) {
+            statusIcon
+
             Text(title)
-                .font(.subheadline)
-            
-            Spacer()
-            
-            Text(shortcut)
-                .font(.system(.caption, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 4).fill(Color.gray.opacity(0.2)))
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.86)
+        }
+        .frame(maxWidth: .infinity, minHeight: 170)
+        .padding(.horizontal, 24)
+        .nativeGlassPanel(cornerRadius: 18)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var statusIcon: some View {
+        Group {
+            if reduceMotion {
+                Image(systemName: iconName)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(iconColor)
+                    .contentTransition(.symbolEffect(.replace))
+            } else {
+                Image(systemName: iconName)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(iconColor)
+                    .symbolEffect(.bounce, value: isJiggling)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+        }
+        .accessibilityLabel(title)
+    }
+
+    private var iconName: String {
+        isJiggling ? "sleep.circle.fill" : "sleep"
+    }
+
+    private var iconColor: Color {
+        isJiggling ? .green : .secondary
+    }
+}
+
+private struct MainSettingsCard: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("settings.macafk_settings".localized)
+                .font(.headline)
+
+            VStack(spacing: 0) {
+                Button(action: { appModel.toggleJiggle() }) {
+                    Text(
+                        appModel.isJiggling
+                            ? "button.stop_jiggling".localized
+                            : "button.start_jiggling".localized
+                    )
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                }
+                .buttonStyle(.glassProminent)
+                .tint(appModel.isJiggling ? .red : .green)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
+                .padding(.bottom, 14)
+
+                Divider()
+
+                IntervalRow(jiggler: appModel.jiggler)
+                    .padding(.vertical, 12)
+
+                Divider()
+
+                LowBrightnessRow(appModel: appModel)
+                    .padding(.vertical, 12)
+
+                Divider()
+
+                AutoLockTimerRow(appModel: appModel)
+                    .padding(.vertical, 12)
+
+                Divider()
+
+                AgentAutoLockRow(appModel: appModel)
+                    .padding(.vertical, 12)
+
+                Divider()
+
+                LaunchAtLoginRow(appModel: appModel)
+                    .padding(.top, 12)
+            }
+            .padding(14)
+            .nativeGlassPanel(cornerRadius: 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .alert("settings.launch_at_login.error.title".localized, isPresented: Binding(
+            get: { appModel.launchAtLoginError != nil },
+            set: { if !$0 { appModel.launchAtLoginError = nil } }
+        )) {
+            Button("button.done".localized) {
+                appModel.launchAtLoginError = nil
+            }
+        } message: {
+            if let error = appModel.launchAtLoginError {
+                Text(error)
+            }
         }
     }
 }
 
-struct ContentView: View {
-    @ObservedObject var appModel: AppModel
-    @State private var showingShortcutEditor = false
-    
+private struct IntervalRow: View {
+    @ObservedObject var jiggler: Jiggler
+
     var body: some View {
-        VStack(spacing: 30) {
-            // Header
-            VStack(spacing: 10) {
-                Image(systemName: appModel.isJiggling ? "sleep.circle.fill" : "sleep")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 60, height: 60)
-                    .foregroundColor(appModel.isJiggling ? .green : .secondary)
-                    .symbolEffect(.bounce, value: appModel.isJiggling)
-                
-                Text("app.name".localized)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text(appModel.isJiggling ? "status.preventing_sleep".localized : "status.system_sleep_allowed".localized)
-                    .font(.headline)
-                    .foregroundColor(.secondary)
+        HStack(alignment: .center, spacing: 14) {
+            Text("jiggle.interval".localized)
+                .font(.body.weight(.semibold))
+
+            Spacer(minLength: 16)
+
+            Text(jiggler.getIntervalDisplay())
+                .font(.system(.body, design: .monospaced))
+                .fontWeight(.semibold)
+                .frame(width: 72, alignment: .trailing)
+                .contentTransition(.numericText())
+                .accessibilityValue(jiggler.getIntervalDisplay())
+
+            Button(action: { jiggler.decreaseInterval() }) {
+                Image(systemName: "minus.circle")
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
-            
-            // Controls
-            VStack(spacing: 20) {
-                Button(action: {
-                    appModel.toggleJiggle()
-                }) {
-                    Text(appModel.isJiggling ? "button.stop_jiggling".localized : "button.start_jiggling".localized)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .frame(width: 200, height: 40)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(appModel.isJiggling ? .red : .green)
-                .controlSize(.large)
-                
-                // 抖动间隔显示
-                HStack(spacing: 8) {
-                    Image(systemName: "timer")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 16))
-                    
-                    Text("jiggle.interval".localized)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                    
-                    Text(appModel.jiggler.getIntervalDisplay())
-                        .font(.system(.body, design: .monospaced))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
-                        .frame(minWidth: 60, alignment: .leading)
-                    
-                    Spacer()
-                    
-                    // 间隔调整按钮
-                    HStack(spacing: 4) {
-                        Button(action: {
-                            appModel.jiggler.decreaseInterval()
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 20))
-                        }
-                        .buttonStyle(.plain)
-                        .help("jiggle.interval.decrease".localized)
-                        
-                        Button(action: {
-                            appModel.jiggler.increaseInterval()
-                        }) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
-                        }
-                        .buttonStyle(.plain)
-                        .help("jiggle.interval.increase".localized)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                
+            .buttonStyle(.borderless)
+            .help("jiggle.interval.decrease".localized)
+            .accessibilityLabel("jiggle.interval.decrease".localized)
+
+            Button(action: { jiggler.increaseInterval() }) {
+                Image(systemName: "plus.circle")
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help("jiggle.interval.increase".localized)
+            .accessibilityLabel("jiggle.interval.increase".localized)
+        }
+    }
+}
+
+private struct LowBrightnessRow: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
                 Toggle("settings.low_brightness_mode".localized, isOn: $appModel.isLowBrightness)
-                    .toggleStyle(.switch)
+                    .toggleStyle(.checkbox)
+                    .font(.body.weight(.semibold))
                     .help("settings.low_brightness_mode.help".localized)
-                
-                Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
-                    .toggleStyle(.switch)
-                    .help("settings.launch_at_login.help".localized)
+
+                Spacer(minLength: 0)
             }
-            .padding()
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor)))
-            
-            /* 亮度测试区域 - 已注释
-            VStack(spacing: 15) {
-                HStack {
-                    Image(systemName: "light.max")
-                        .foregroundColor(.orange)
-                    Text("亮度测试")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    Spacer()
-                    Text("\(Int(appModel.testBrightness * 100))%")
-                        .font(.system(.title3, design: .monospaced))
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
-                }
-                
-                HStack(spacing: 10) {
-                    Image(systemName: "sun.min.fill")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    
-                    Slider(value: $appModel.testBrightness, in: 0.01...1.0)
-                        .onChange(of: appModel.testBrightness) { _, newValue in
-                            // 实时设置亮度
-                            appModel.setTestBrightness(newValue)
-                        }
-                    
-                    Image(systemName: "sun.max.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-                
-                HStack(spacing: 10) {
-                    Button("最低") {
-                        appModel.testBrightness = 0.01
-                        appModel.setTestBrightness(0.01)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("25%") {
-                        appModel.testBrightness = 0.25
-                        appModel.setTestBrightness(0.25)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("50%") {
-                        appModel.testBrightness = 0.5
-                        appModel.setTestBrightness(0.5)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("75%") {
-                        appModel.testBrightness = 0.75
-                        appModel.setTestBrightness(0.75)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("最高") {
-                        appModel.testBrightness = 1.0
-                        appModel.setTestBrightness(1.0)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                
-                Text("💡 拖动滑块或点击按钮测试亮度控制是否工作")
+
+            Text("settings.low_brightness_mode.description".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(appModel.brightnessControl.issues) { issue in
+                Label(issue.localizedMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.orange)
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.orange.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.orange.opacity(0.3), lineWidth: 2)
-                    )
-            )
-            */
-            
-            // 快捷键配置
-            VStack(spacing: 15) {
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AutoLockTimerRow: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 14) {
+                Toggle("timer.auto_lock.enabled".localized, isOn: $appModel.autoLockTimerEnabled)
+                    .toggleStyle(.checkbox)
+                    .font(.body.weight(.semibold))
+                    .help("timer.auto_lock.help".localized)
+
+                Spacer(minLength: 16)
+
+                Text(appModel.getAutoLockDurationDisplay())
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.semibold)
+                    .frame(width: 96, alignment: .trailing)
+                    .contentTransition(.numericText())
+
+                Button(action: { appModel.decreaseAutoLockDuration() }) {
+                    Image(systemName: "minus.circle")
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .help("timer.auto_lock.decrease".localized)
+                .accessibilityLabel("timer.auto_lock.decrease".localized)
+
+                Button(action: { appModel.increaseAutoLockDuration() }) {
+                    Image(systemName: "plus.circle")
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .help("timer.auto_lock.increase".localized)
+                .accessibilityLabel("timer.auto_lock.increase".localized)
+            }
+
+            Text("timer.auto_lock.description".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if appModel.autoLockEndDate != nil {
+                Label(
+                    String(format: "timer.auto_lock.remaining".localized, appModel.getAutoLockRemainingDisplay()),
+                    systemImage: "timer"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.blue)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct LaunchAtLoginRow: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        HStack {
+            Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
+                .toggleStyle(.checkbox)
+                .font(.body.weight(.semibold))
+                .help("settings.launch_at_login.help".localized)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AgentAutoLockRow: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Toggle("agent.auto_lock.enabled".localized, isOn: $appModel.agentAutoLockEnabled)
+                    .toggleStyle(.checkbox)
+                    .font(.body.weight(.semibold))
+                    .help("agent.auto_lock.help".localized)
+
+                Spacer(minLength: 0)
+            }
+
+            Text("agent.auto_lock.description".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if appModel.activeAgentSessionCount > 0 {
+                Label(
+                    String(format: "agent.auto_lock.active_count".localized, appModel.activeAgentSessionCount),
+                    systemImage: "bolt.horizontal.circle.fill"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.green)
+            } else if appModel.agentAutoLockEndDate != nil {
+                Label(
+                    String(format: "agent.auto_lock.remaining".localized, appModel.getAgentAutoLockRemainingDisplay()),
+                    systemImage: "timer"
+                )
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.blue)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AgentActivityCard: View {
+    @ObservedObject var appModel: AppModel
+
+    @State private var isExpanded = false
+
+    private let collapsedRowLimit = 2
+
+    var body: some View {
+        let agents = appModel.activeAgentSessionsList
+        let visibleAgents = isExpanded ? agents : Array(agents.prefix(collapsedRowLimit))
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Label("agent.activity.title".localized, systemImage: "bolt.horizontal.circle.fill")
+                    .font(.headline)
+
+                Spacer(minLength: 12)
+
+                if appModel.activeAgentSessionCount > 0 {
+                    Text(String(format: "agent.activity.count".localized, appModel.activeAgentSessionCount))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.green)
+                        .lineLimit(1)
+                }
+            }
+
+            VStack(spacing: 0) {
+                if agents.isEmpty {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label("agent.activity.empty".localized, systemImage: "checkmark.circle")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+
+                        Text(appModel.agentHookStatusMessage.isEmpty ? "agent.activity.hook_hint".localized : appModel.agentHookStatusMessage)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+                } else {
+                    ForEach(visibleAgents.indices, id: \.self) { index in
+                        let event = visibleAgents[index]
+
+                        if index > 0 {
+                            Divider()
+                        }
+
+                        AgentActivityRow(event: event)
+                            .padding(.vertical, 10)
+                    }
+
+                    if agents.count > collapsedRowLimit {
+                        Divider()
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                isExpanded.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                    .frame(width: 16)
+
+                                Text(expandButtonTitle(totalCount: agents.count))
+                                    .lineLimit(1)
+
+                                Spacer(minLength: 0)
+                            }
+                            .font(.caption.weight(.semibold))
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel(expandButtonTitle(totalCount: agents.count))
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .nativeGlassPanel(cornerRadius: 16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func expandButtonTitle(totalCount: Int) -> String {
+        if isExpanded {
+            return "agent.activity.collapse".localized
+        }
+
+        return String(
+            format: "agent.activity.expand".localized,
+            max(totalCount - collapsedRowLimit, 0)
+        )
+    }
+}
+
+private struct AgentActivityRow: View {
+    let event: AgentHookEvent
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(event.iconAssetName)
+                .resizable()
+                .renderingMode(.original)
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(event.softwareDisplayName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Text(event.taskDisplayName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Text("\(event.eventName) · \(String(format: "agent.activity.session".localized, event.shortSessionID))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer(minLength: 10)
+
+            Text("agent.activity.running".localized)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.green)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+        .help(event.cwd ?? event.id)
+    }
+}
+
+private struct ShortcutSummaryCard: View {
+    @ObservedObject var shortcutManager: ShortcutManager
+    let customizeAction: () -> Void
+
+    let customizeFocused: AccessibilityFocusState<Bool>.Binding
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("settings.title".localized)
+                .font(.headline)
+
+            VStack(spacing: 0) {
+                ShortcutDisplayRow(
+                    title: "shortcut.toggle_jiggle".localized,
+                    icon: "power",
+                    color: .green,
+                    shortcut: shortcutManager.getShortcutDisplay(for: .toggleJiggle)
+                )
+
+                Divider()
+
+                ShortcutDisplayRow(
+                    title: "shortcut.toggle_brightness".localized,
+                    icon: "sun.max",
+                    color: .orange,
+                    shortcut: shortcutManager.getShortcutDisplay(for: .toggleBrightness)
+                )
+
+                Divider()
+
                 HStack {
-                    Image(systemName: "keyboard")
-                        .foregroundColor(.blue)
-                    Text("settings.title".localized)
-                        .font(.headline)
-                        .fontWeight(.bold)
+                    Button(action: customizeAction) {
+                        Label("button.customize_all_shortcuts".localized, systemImage: "slider.horizontal.3")
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityFocused(customizeFocused)
+
                     Spacer()
                 }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    ShortcutRow(
-                        icon: "power",
-                        title: "shortcut.toggle_jiggle".localized,
-                        shortcut: appModel.shortcutManager.getShortcutDisplay(for: .toggleJiggle),
-                        color: .green
-                    )
-                    
-                    ShortcutRow(
-                        icon: "sun.max",
-                        title: "shortcut.toggle_brightness".localized,
-                        shortcut: appModel.shortcutManager.getShortcutDisplay(for: .toggleBrightness),
-                        color: .orange
-                    )
-                }
-                
-                Button(action: {
-                    showingShortcutEditor = true
-                }) {
-                    HStack {
-                        Image(systemName: "slider.horizontal.3")
-                        Text("button.customize_all_shortcuts".localized)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .padding(.top, 12)
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue.opacity(0.1))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 2)
-                    )
-            )
-            
-            // Footer
-            Text("footer.permission_hint".localized)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            .padding(14)
+            .nativeGlassPanel(cornerRadius: 16)
         }
-        .padding(40)
-        .frame(minWidth: 400, minHeight: 700)
-        .sheet(isPresented: $showingShortcutEditor) {
-            ShortcutEditorView(shortcutManager: appModel.shortcutManager)
+    }
+}
+
+private struct ShortcutDisplayRow: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let shortcut: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Label(title, systemImage: icon)
+                .foregroundStyle(color)
+                .font(.body.weight(.semibold))
+
+            Spacer(minLength: 12)
+
+            Text(shortcut)
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct PermissionHintFooter: View {
+    var body: some View {
+        Text("footer.permission_hint".localized)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .nativeGlassPanel(cornerRadius: 16)
+    }
+}
+
+private struct NativeGlassPanel: ViewModifier {
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+    }
+}
+
+private extension View {
+    func nativeGlassPanel(cornerRadius: CGFloat) -> some View {
+        modifier(NativeGlassPanel(cornerRadius: cornerRadius))
     }
 }

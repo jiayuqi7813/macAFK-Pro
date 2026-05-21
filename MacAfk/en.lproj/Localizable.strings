@@ -26,10 +26,18 @@
 "settings.low_brightness_mode.help" = "Automatically lower brightness when Jiggler is active";
 "settings.shortcuts" = "Shortcuts";
 "settings.macafk_settings" = "MacAfk Pro Settings";
+"settings.window_title" = "MacAfk Pro Settings";
+"settings.sidebar.toggle" = "Toggle Sidebar";
 "settings.enable_low_brightness_mode" = "Enable Low Brightness Mode";
 "settings.toggle_jiggler_shortcut" = "Toggle Jiggler: Cmd + Ctrl + S";
 "settings.launch_at_login" = "Launch at Login";
 "settings.launch_at_login.help" = "Automatically start MacAfk Pro when you log in";
+"settings.debug" = "Debug";
+
+// Debug
+"debug.skip_permission_prompts" = "Skip Permission Prompts";
+"debug.skip_permission_prompts.help" = "Do not show accessibility permission dialogs (for development and testing)";
+"debug.skip_permission_prompts.note" = "When enabled, system and in-app accessibility permission prompts are suppressed. Permission is still checked silently.";
 
 // Jiggle Interval
 "jiggle.interval" = "Jiggle Interval:";
@@ -136,3 +144,96 @@
 "betterdisplay.connection_success" = "Connection successful";
 "betterdisplay.connection_failed" = "Connection failed";
 
+// Launch at Login
+"settings.launch_at_login.error" = "Unable to update launch at login setting. Please try again in System Settings.";
+"settings.launch_at_login.error.title" = "Launch at Login Failed";
+
+// Low Brightness Description
+"settings.low_brightness_mode.description" = "When enabled, brightness is lowered while jiggling is active. Built-in displays use hardware control; external displays require BetterDisplay integration.";
+
+// Brightness Errors
+"brightness.error.display_services" = "DisplayServices is unavailable. Built-in display hardware brightness control is disabled.";
+"brightness.error.betterdisplay_not_ready" = "BetterDisplay is not ready. External display brightness cannot be controlled.";
+"brightness.error.external_unmapped" = "External display %u is not mapped to BetterDisplay.";
+"brightness.error.external_failed" = "Failed to set brightness on external display %u.";
+"brightness.error.builtin_failed" = "Failed to set brightness on built-in display %u.";
+
+// Shortcut Conflict
+"shortcut.editor.conflict.title" = "Shortcut Conflict";
+"shortcut.editor.conflict.message" = "This shortcut is already used by \"%@\".";
+
+// Display Info
+"display.info" = "Display Information";
+"display.info.display_id" = "Display ID";
+"display.info.uuid" = "UUID";
+"display.info.serial" = "Serial Number";
+"display.info.model" = "Model";
+"display.info.vendor" = "Vendor";
+"display.info.alphanumeric_serial" = "Alphanumeric Serial";
+"display.info.manufacture_date" = "Manufacture Date";
+"display.brightness_test" = "Brightness Test";
+"display.brightness_test.get_current" = "1. Get Current Brightness";
+"display.brightness_test.set_target" = "2. Set Target Brightness";
+"display.brightness_test.fetching" = "Fetching brightness...";
+"display.brightness_test.current" = "Current brightness: %d%%";
+"display.brightness_test.fetch_failed" = "Failed to get brightness";
+"display.brightness_test.no_uuid" = "Display has no UUID";
+"display.brightness_test.get_button" = "Get Brightness";
+"display.brightness_test.setting" = "Setting brightness...";
+"display.brightness_test.set_success" = "Brightness set to %d%%";
+"display.brightness_test.set_failed" = "Failed to set brightness";
+"display.brightness_test.set_button" = "Set Brightness";
+"display.brightness_test.hint" = "Testing applies only to the selected display and does not affect other displays.";
+
+// BetterDisplay Environment Check
+"betterdisplay.environment_check" = "Environment Check";
+"betterdisplay.open_app" = "Open BetterDisplay";
+"betterdisplay.display_list" = "Display List";
+"betterdisplay.no_displays" = "No displays detected";
+"betterdisplay.enable_hint" = "Enable BetterDisplay integration to manage external displays";
+"betterdisplay.environment_check.title" = "BetterDisplay Environment Check";
+"betterdisplay.environment_check.checking" = "Checking...";
+"betterdisplay.environment_check.install" = "1. BetterDisplay Installation";
+"betterdisplay.environment_check.installed" = "Installed";
+"betterdisplay.environment_check.not_installed_status" = "Not installed";
+"betterdisplay.environment_check.download" = "Download";
+"betterdisplay.environment_check.running" = "2. BetterDisplay Running";
+"betterdisplay.environment_check.launch" = "Launch App";
+"betterdisplay.environment_check.connection" = "3. Integration API Connection";
+"betterdisplay.environment_check.guide" = "View Setup Guide";
+"betterdisplay.environment_check.recheck" = "Check Again";
+"betterdisplay.environment_check.failure_title" = "Connection may fail because:";
+"betterdisplay.environment_check.failure_reason_1" = "• Integration features are not enabled in BetterDisplay";
+"betterdisplay.environment_check.failure_reason_2" = "• BetterDisplay may need to be restarted after changing settings";
+"sidebar.toggle" = "Show Sidebar";
+"timer.auto_lock.enabled" = "Timed Lock";
+"timer.auto_lock.help" = "Stop preventing sleep, restore brightness, and lock the screen when time is up";
+"timer.auto_lock.description" = "When enabled, MacAfk stops preventing sleep after the selected time, restores brightness, then locks the screen.";
+"timer.auto_lock.remaining" = "Locks in %@";
+"timer.auto_lock.decrease" = "Decrease timer duration";
+"timer.auto_lock.increase" = "Increase timer duration";
+"agent.auto_lock.title" = "Lock After AI Agents Finish";
+"agent.auto_lock.enabled" = "Lock after agents finish";
+"agent.auto_lock.help" = "Wait 5 minutes after all AI agents finish, then stop preventing sleep, restore brightness, and lock";
+"agent.auto_lock.description" = "After an agent completion event, MacAfk waits 5 minutes. If another agent is active or a new task starts, that lock is cancelled.";
+"agent.auto_lock.setup_note" = "Installing hooks supports Codex, Claude, Qoder, Qwen, Factory, CodeBuddy, Cursor, Gemini, and Kimi. Existing configs are backed up before writing.";
+"agent.auto_lock.active_count" = "%d agents working";
+"agent.auto_lock.remaining" = "Agents finished; locks in %@";
+"agent.auto_lock.active_agents" = "Active Agents";
+"agent.auto_lock.countdown" = "Lock Countdown";
+"agent.activity.title" = "Running AI Agents";
+"agent.activity.empty" = "No running agents detected";
+"agent.activity.hook_hint" = "After hooks are installed, active agents appear here.";
+"agent.activity.count" = "%d running";
+"agent.activity.running" = "Running";
+"agent.activity.session" = "Session %@";
+"agent.activity.expand" = "Show %d more";
+"agent.activity.collapse" = "Collapse";
+"agent.hooks.status" = "Hook Status";
+"agent.hooks.status.all_installed" = "All agent hooks installed";
+"agent.hooks.status.partial" = "%d/%d agent hooks installed";
+"agent.hooks.status.not_installed" = "Agent hooks not installed";
+"agent.hooks.install" = "Install/Update Hooks";
+"agent.hooks.uninstall" = "Uninstall Hooks";
+"agent.hooks.refresh" = "Refresh Status";
+"agent.hooks.error.title" = "Agent Hooks Setup Failed";

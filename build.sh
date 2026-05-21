@@ -18,9 +18,17 @@ VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0"
 # 移除版本号前的 v（如果有）
 VERSION="${VERSION#v}"
 
+SIGNING_IDENTITY="${MACOS_SIGNING_IDENTITY:-}"
+ENTITLEMENTS_PATH="$PROJECT_DIR/MacAfk/MacAfk.entitlements"
+
 echo "🏗️  MacAfk Pro 构建脚本"
 echo "================================"
 echo "版本: $VERSION"
+if [ -n "$SIGNING_IDENTITY" ]; then
+    echo "签名: Developer ID ($SIGNING_IDENTITY)"
+else
+    echo "签名: ad-hoc"
+fi
 echo ""
 
 # 清理旧的构建产物
@@ -31,6 +39,91 @@ rm -rf "$DIST_DIR"
 mkdir -p "$BUILD_DIR"
 mkdir -p "$ARCHIVE_DIR"
 mkdir -p "$DIST_DIR"
+
+has_developer_id_signing() {
+    [ -n "$SIGNING_IDENTITY" ]
+}
+
+has_notary_credentials() {
+    [ -n "${APPLE_NOTARY_APPLE_ID:-}" ] \
+        && [ -n "${APPLE_NOTARY_PASSWORD:-}" ] \
+        && [ -n "${APPLE_NOTARY_TEAM_ID:-}" ]
+}
+
+sign_app() {
+    local app_path="$1"
+
+    if [ ! -f "$ENTITLEMENTS_PATH" ]; then
+        echo "⚠️  未找到 entitlements 文件: $ENTITLEMENTS_PATH"
+        echo "   应用将不包含必要的权限声明"
+        return 0
+    fi
+
+    if has_developer_id_signing; then
+        echo "🔐 使用 Developer ID 签名应用..."
+        codesign --force --deep \
+            --sign "$SIGNING_IDENTITY" \
+            --entitlements "$ENTITLEMENTS_PATH" \
+            --options runtime \
+            --timestamp \
+            "$app_path"
+        echo "✅ Developer ID 签名成功"
+    else
+        echo "🔐 应用 ad-hoc 签名（使 entitlements 生效）..."
+        if codesign --force --deep --sign - \
+            --entitlements "$ENTITLEMENTS_PATH" \
+            --options runtime \
+            "$app_path" 2>&1; then
+            echo "✅ ad-hoc 签名成功"
+        else
+            echo "⚠️  ad-hoc 签名失败，但继续构建..."
+            echo "   注意：快捷键功能可能无法在安装后的应用中正常工作"
+            return 0
+        fi
+    fi
+
+    echo "✅ 验证签名..."
+    codesign -dv "$app_path" 2>&1 | head -3 || true
+
+    echo "✅ 验证 entitlements..."
+    codesign -d --entitlements - "$app_path" 2>&1 | grep -A 5 "com.apple.security" || echo "  (entitlements 已应用)"
+}
+
+sign_dmg() {
+    local dmg_path="$1"
+
+    if ! has_developer_id_signing; then
+        return 0
+    fi
+
+    echo "🔐 签名 DMG: $(basename "$dmg_path")"
+    codesign --force --sign "$SIGNING_IDENTITY" --timestamp "$dmg_path"
+    codesign -dv "$dmg_path" 2>&1 | head -3 || true
+}
+
+notarize_dmg() {
+    local dmg_path="$1"
+
+    if ! has_developer_id_signing; then
+        return 0
+    fi
+
+    if ! has_notary_credentials; then
+        echo "⚠️  已完成 Developer ID 签名，但缺少公证凭据，跳过 notarization。"
+        echo "   需要 APPLE_NOTARY_APPLE_ID / APPLE_NOTARY_PASSWORD / APPLE_NOTARY_TEAM_ID。"
+        return 0
+    fi
+
+    echo "📮 提交 Apple 公证: $(basename "$dmg_path")"
+    xcrun notarytool submit "$dmg_path" \
+        --apple-id "$APPLE_NOTARY_APPLE_ID" \
+        --password "$APPLE_NOTARY_PASSWORD" \
+        --team-id "$APPLE_NOTARY_TEAM_ID" \
+        --wait
+
+    echo "📎 Staple 公证票据: $(basename "$dmg_path")"
+    xcrun stapler staple "$dmg_path"
+}
 
 # 构建函数
 build_variant() {
@@ -57,32 +150,7 @@ build_variant() {
     mkdir -p "$export_path"
     cp -R "$ARCHIVE_DIR/${archive_name}.xcarchive/Products/Applications/${PRODUCT_NAME}.app" "$export_path/"
     
-    # 使用 ad-hoc 签名（本地签名）以确保 entitlements 生效
-    # 这对于快捷键功能正常工作至关重要
-    echo "🔐 应用 ad-hoc 签名（使entitlements生效）..."
-    
-    if [ -f "$PROJECT_DIR/MacAfk/MacAfk.entitlements" ]; then
-        if codesign --force --deep --sign - \
-            --entitlements "$PROJECT_DIR/MacAfk/MacAfk.entitlements" \
-            --options runtime \
-            "$export_path/${PRODUCT_NAME}.app" 2>&1; then
-            
-            echo "✅ ad-hoc 签名成功"
-            
-            # 验证签名
-            echo "✅ 验证签名..."
-            codesign -dv "$export_path/${PRODUCT_NAME}.app" 2>&1 | head -3 || true
-            
-            echo "✅ 验证 entitlements..."
-            codesign -d --entitlements - "$export_path/${PRODUCT_NAME}.app" 2>&1 | grep -A 5 "com.apple.security" || echo "  (entitlements已应用)"
-        else
-            echo "⚠️  ad-hoc 签名失败，但继续构建..."
-            echo "   注意：快捷键功能可能无法在安装后的应用中正常工作"
-        fi
-    else
-        echo "⚠️  未找到 entitlements 文件: $PROJECT_DIR/MacAfk/MacAfk.entitlements"
-        echo "   应用将不包含必要的权限声明"
-    fi
+    sign_app "$export_path/${PRODUCT_NAME}.app"
     
     echo "✅ MacAfk Pro ($arch) 构建完成！"
 }
@@ -172,6 +240,9 @@ EOFSCRIPT
         -format UDZO \
         -imagekey zlib-level=9 \
         -o "$DIST_DIR/$dmg_name" > /dev/null
+
+    sign_dmg "$DIST_DIR/$dmg_name"
+    notarize_dmg "$DIST_DIR/$dmg_name"
     
     # 清理
     rm -f "$temp_dmg"
@@ -221,6 +292,8 @@ create_universal() {
         "$arm_app/Contents/MacOS/$executable_name" \
         "$x86_app/Contents/MacOS/$executable_name" \
         -output "$universal_app/Contents/MacOS/$executable_name"
+
+    sign_app "$universal_app"
     
     # 创建 Universal DMG
     local dmg_name="MacAfk-Pro-Universal-v${VERSION}.dmg"
@@ -304,6 +377,9 @@ EOFSCRIPT
         -format UDZO \
         -imagekey zlib-level=9 \
         -o "$DIST_DIR/$dmg_name" > /dev/null
+
+    sign_dmg "$DIST_DIR/$dmg_name"
+    notarize_dmg "$DIST_DIR/$dmg_name"
     
     # 清理
     rm -f "$temp_dmg"

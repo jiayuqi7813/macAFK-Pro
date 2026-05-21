@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AppKit
+import os
 
 /// BetterDisplay 通知请求数据结构
 struct IntegrationNotificationRequestData: Codable {
@@ -32,15 +33,13 @@ struct BetterDisplayInfo: Codable, Identifiable {
     let vendor: String?
     let weekOfManufacture: String?
     let yearOfManufacture: String?
-    
+
     var id: String { UUID ?? tagID }
-    
-    /// 是否是显示器组
+
     var isDisplayGroup: Bool {
         deviceType == "DisplayGroup"
     }
-    
-    /// 是否是物理显示器
+
     var isPhysicalDisplay: Bool {
         deviceType == "Display"
     }
@@ -49,44 +48,40 @@ struct BetterDisplayInfo: Codable, Identifiable {
 /// BetterDisplay 集成管理器
 class BetterDisplayManager: ObservableObject {
     static let shared = BetterDisplayManager()
-    
+
     @Published var isInstalled: Bool = false
     @Published var isRunning: Bool = false
     @Published var isEnabled: Bool = false
     @Published var displays: [BetterDisplayInfo] = []
-    
+
     private let appPath = "/Applications/BetterDisplay.app"
     private let appBundleIdentifier = "me.waydabber.BetterDisplay"
     private let requestNotificationName = "com.betterdisplay.BetterDisplay.request"
     private let responseNotificationName = "com.betterdisplay.BetterDisplay.response"
     private let userDefaultsKey = "useBetterDisplay"
-    
+    private let defaultRequestTimeout: TimeInterval = 5.0
+
     private var responseObserver: Any?
     private var pendingRequests: [String: (Bool, String?) -> Void] = [:]
-    
-    // 缓存的亮度值（UUID -> 亮度）
     private var cachedBrightness: [String: Float] = [:]
-    
+
     private init() {
         setupNotificationObserver()
         checkInstallation()
         checkIfRunning()
         loadEnabledState()
-        
+
         if isInstalled && isRunning && isEnabled {
             refreshDisplays()
         }
     }
-    
+
     deinit {
         if let observer = responseObserver {
             DistributedNotificationCenter.default().removeObserver(observer)
         }
     }
-    
-    // MARK: - Notification Observer
-    
-    /// 设置通知监听器
+
     private func setupNotificationObserver() {
         responseObserver = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name(responseNotificationName),
@@ -96,108 +91,76 @@ class BetterDisplayManager: ObservableObject {
             self?.handleResponse(notification)
         }
     }
-    
-    /// 处理 BetterDisplay 响应
+
     private func handleResponse(_ notification: Notification) {
         guard let jsonString = notification.object as? String,
               let jsonData = jsonString.data(using: .utf8) else {
             return
         }
-        
+
         do {
             let response = try JSONDecoder().decode(IntegrationNotificationResponseData.self, from: jsonData)
-            
-            if let uuid = response.uuid, let completion = pendingRequests[uuid] {
+
+            if let uuid = response.uuid, let completion = pendingRequests.removeValue(forKey: uuid) {
                 completion(response.result ?? false, response.payload)
-                pendingRequests.removeValue(forKey: uuid)
             }
         } catch {
-            print("❌ [BetterDisplay] JSON 解析失败: \(error)")
+            AppLog.betterDisplay.error("JSON decode failed: \(error.localizedDescription, privacy: .public)")
         }
     }
-    
-    // MARK: - Installation Detection
-    
-    /// 检查 BetterDisplay 是否已安装
+
     func checkInstallation() {
-        let fileManager = FileManager.default
-        isInstalled = fileManager.fileExists(atPath: appPath)
+        isInstalled = FileManager.default.fileExists(atPath: appPath)
     }
-    
-    /// 检查 BetterDisplay 进程是否在运行
+
     func checkIfRunning() {
         let runningApps = NSWorkspace.shared.runningApplications
-        
+
         for app in runningApps {
             if let bundleId = app.bundleIdentifier {
-                if bundleId == appBundleIdentifier || 
-                   bundleId.contains("BetterDisplay") ||
-                   bundleId.hasPrefix("me.waydabber") {
+                if bundleId == appBundleIdentifier ||
+                    bundleId.contains("BetterDisplay") ||
+                    bundleId.hasPrefix("me.waydabber") {
                     isRunning = true
                     return
                 }
             }
-            
+
             if let appName = app.localizedName, appName.contains("BetterDisplay") {
                 isRunning = true
                 return
             }
-            
+
             if let url = app.bundleURL, url.path.contains("BetterDisplay.app") {
                 isRunning = true
                 return
             }
         }
-        
+
         isRunning = false
     }
-    
-    /// 测试与 BetterDisplay 的连通性
+
     func testConnection(completion: @escaping (Bool) -> Void) {
         checkInstallation()
         checkIfRunning()
-        
-        guard isInstalled else {
+
+        guard isInstalled, isRunning else {
             completion(false)
             return
         }
-        
-        guard isRunning else {
-            completion(false)
-            return
-        }
-        
-        let uuid = UUID().uuidString
-        let requestData = IntegrationNotificationRequestData(
-            uuid: uuid,
+
+        sendRequest(
             commands: ["get"],
-            parameters: ["identifiers": nil]
-        )
-        
-        var hasResponded = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            if !hasResponded {
-                self?.pendingRequests.removeValue(forKey: uuid)
-                completion(false)
-            }
-        }
-        
-        pendingRequests[uuid] = { [weak self] success, _ in
-            guard !hasResponded else { return }
-            hasResponded = true
-            
+            parameters: ["identifiers": nil],
+            timeout: 3.0
+        ) { [weak self] success, _ in
             if success {
                 self?.isRunning = true
             }
             completion(success)
         }
-        
-        sendNotificationRequest(requestData)
     }
-    
-    // MARK: - Notification Request
-    
-    /// 发送通知请求到 BetterDisplay
+
     private func sendNotificationRequest(_ requestData: IntegrationNotificationRequestData) {
         do {
             let encodedData = try JSONEncoder().encode(requestData)
@@ -210,169 +173,183 @@ class BetterDisplayManager: ObservableObject {
                 )
             }
         } catch {
-            print("❌ [BetterDisplay] 编码请求失败: \(error)")
+            AppLog.betterDisplay.error("Request encoding failed: \(error.localizedDescription, privacy: .public)")
         }
     }
-    
-    // MARK: - Enable/Disable
-    
-    /// 加载启用状态
+
+    /// 统一请求封装，带超时
+    private func sendRequest(
+        commands: [String],
+        parameters: [String: String?] = [:],
+        timeout: TimeInterval? = nil,
+        completion: @escaping (Bool, String?) -> Void
+    ) {
+        let requestUUID = UUID().uuidString
+        let requestData = IntegrationNotificationRequestData(
+            uuid: requestUUID,
+            commands: commands,
+            parameters: parameters
+        )
+
+        var completed = false
+        let lock = NSLock()
+
+        pendingRequests[requestUUID] = { success, payload in
+            lock.lock()
+            defer { lock.unlock() }
+            guard !completed else { return }
+            completed = true
+            completion(success, payload)
+        }
+
+        let timeoutInterval = timeout ?? defaultRequestTimeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeoutInterval) { [weak self] in
+            lock.lock()
+            defer { lock.unlock() }
+            guard !completed else { return }
+            completed = true
+            self?.pendingRequests.removeValue(forKey: requestUUID)
+            AppLog.betterDisplay.error("Request timed out after \(timeoutInterval)s")
+            completion(false, nil)
+        }
+
+        sendNotificationRequest(requestData)
+    }
+
     private func loadEnabledState() {
         isEnabled = UserDefaults.standard.bool(forKey: userDefaultsKey)
     }
-    
-    /// 设置启用状态
+
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: userDefaultsKey)
-        
+
         if enabled && isInstalled {
             refreshDisplays()
         } else {
             displays = []
         }
     }
-    
-    // MARK: - Display List
-    
-    /// 刷新显示器列表
+
     func refreshDisplays() {
-        guard isInstalled && isRunning else {
-            return
-        }
-        
-        let uuid = UUID().uuidString
-        let requestData = IntegrationNotificationRequestData(
-            uuid: uuid,
+        guard isInstalled && isRunning else { return }
+
+        sendRequest(
             commands: ["get"],
             parameters: ["identifiers": nil]
-        )
-        
-        pendingRequests[uuid] = { [weak self] success, payload in
+        ) { [weak self] success, payload in
             if success, let payload = payload {
                 self?.parseDisplaysJSON(payload)
             }
         }
-        
-        sendNotificationRequest(requestData)
     }
-    
-    /// 解析显示器 JSON 数据
+
     private func parseDisplaysJSON(_ jsonString: String) {
-        let wrappedJSON = "[" + jsonString.replacingOccurrences(of: "}{", with: "},{") + "]"
-        
-        guard let wrappedData = wrappedJSON.data(using: .utf8) else {
+        let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let decoder = JSONDecoder()
+
+        if let data = trimmed.data(using: .utf8) {
+            if let array = try? decoder.decode([BetterDisplayInfo].self, from: data) {
+                publishDisplays(array)
+                return
+            }
+
+            if let single = try? decoder.decode(BetterDisplayInfo.self, from: data) {
+                publishDisplays([single])
+                return
+            }
+        }
+
+        let lines = trimmed.split(separator: "\n").map(String.init)
+        if lines.count > 1 {
+            var parsed: [BetterDisplayInfo] = []
+            for line in lines {
+                guard let data = line.data(using: .utf8),
+                      let item = try? decoder.decode(BetterDisplayInfo.self, from: data) else {
+                    continue
+                }
+                parsed.append(item)
+            }
+            if !parsed.isEmpty {
+                publishDisplays(parsed)
+                return
+            }
+        }
+
+        let wrappedJSON = "[" + trimmed.replacingOccurrences(of: "}{", with: "},{") + "]"
+        if let wrappedData = wrappedJSON.data(using: .utf8),
+           let allDisplays = try? decoder.decode([BetterDisplayInfo].self, from: wrappedData) {
+            publishDisplays(allDisplays)
             return
         }
-        
-        let decoder = JSONDecoder()
-        do {
-            let allDisplays = try decoder.decode([BetterDisplayInfo].self, from: wrappedData)
-            DispatchQueue.main.async {
-                self.displays = allDisplays.filter { $0.isPhysicalDisplay }
-            }
-        } catch {
-            print("❌ [BetterDisplay] JSON 解析失败: \(error)")
+
+        AppLog.betterDisplay.error("Unable to parse display JSON payload")
+    }
+
+    private func publishDisplays(_ allDisplays: [BetterDisplayInfo]) {
+        DispatchQueue.main.async {
+            self.displays = allDisplays.filter { $0.isPhysicalDisplay }
         }
     }
-    
-    // MARK: - 亮度控制核心方法
-    
-    /// 获取显示器当前亮度并保存到缓存（通过 UUID）
-    /// - Parameters:
-    ///   - uuid: 显示器 UUID
-    ///   - completion: 完成回调，返回获取到的亮度值（成功）或 nil（失败）
+
     func cacheBrightnessByUUID(uuid: String, completion: @escaping (Float?) -> Void) {
         guard isInstalled && isRunning && isEnabled else {
-            print("⚠️ [BetterDisplay] 未就绪，无法获取亮度")
             completion(nil)
             return
         }
-        
-        let requestUUID = UUID().uuidString
-        let requestData = IntegrationNotificationRequestData(
-            uuid: requestUUID,
+
+        sendRequest(
             commands: ["get"],
             parameters: [
                 "uuid": uuid,
                 "feature": "brightness"
             ]
-        )
-        
-        pendingRequests[requestUUID] = { [weak self] result, payload in
+        ) { [weak self] result, payload in
             guard result, let payload = payload else {
-                print("❌ [BetterDisplay] 获取显示器 UUID:\(uuid) 亮度失败")
                 completion(nil)
                 return
             }
-            
+
             if let value = Float(payload.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 self?.cachedBrightness[uuid] = value
-                print("💾 [BetterDisplay] 已缓存显示器 UUID:\(uuid) 亮度: \(Int(value * 100))%")
                 completion(value)
             } else {
-                print("❌ [BetterDisplay] 无法解析亮度值: \(payload)")
                 completion(nil)
             }
         }
-        
-        sendNotificationRequest(requestData)
     }
-    
-    /// 设置显示器亮度（通过 UUID）
-    /// - Parameters:
-    ///   - uuid: 显示器 UUID
-    ///   - brightness: 亮度值 (0.0 - 1.0)
-    ///   - completion: 完成回调，返回是否成功
+
     func setBrightnessByUUID(uuid: String, brightness: Float, completion: @escaping (Bool) -> Void) {
         guard isInstalled && isRunning && isEnabled else {
-            print("⚠️ [BetterDisplay] 未就绪，无法设置亮度")
             completion(false)
             return
         }
-        
+
         let clampedBrightness = max(0.0, min(1.0, brightness))
-        
-        let requestUUID = UUID().uuidString
-        let requestData = IntegrationNotificationRequestData(
-            uuid: requestUUID,
+
+        sendRequest(
             commands: ["set"],
             parameters: [
                 "uuid": uuid,
                 "brightness": String(format: "%.2f", clampedBrightness)
             ]
-        )
-        
-        pendingRequests[requestUUID] = { result, _ in
-            if result {
-                print("✅ [BetterDisplay] 显示器 UUID:\(uuid) 亮度已设置为 \(Int(clampedBrightness * 100))%")
-            } else {
-                print("❌ [BetterDisplay] 显示器 UUID:\(uuid) 设置亮度失败")
-            }
+        ) { result, _ in
             completion(result)
         }
-        
-        sendNotificationRequest(requestData)
     }
-    
-    /// 恢复显示器缓存的亮度（通过 UUID）
-    /// - Parameters:
-    ///   - uuid: 显示器 UUID
-    ///   - completion: 完成回调，返回是否成功
+
     func restoreCachedBrightnessByUUID(uuid: String, completion: @escaping (Bool) -> Void) {
         guard let cachedValue = cachedBrightness[uuid] else {
-            print("⚠️ [BetterDisplay] 未找到显示器 UUID:\(uuid) 的缓存亮度")
             completion(false)
             return
         }
-        
-        print("🔄 [BetterDisplay] 恢复显示器 UUID:\(uuid) 的缓存亮度: \(Int(cachedValue * 100))%")
+
         setBrightnessByUUID(uuid: uuid, brightness: cachedValue, completion: completion)
     }
-    
-    /// 清除缓存的亮度值
+
     func clearCachedBrightness() {
         cachedBrightness.removeAll()
-        print("🗑️ [BetterDisplay] 已清除所有缓存亮度")
     }
 }

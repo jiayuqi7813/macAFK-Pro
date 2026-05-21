@@ -226,4 +226,4 @@ ENV/
 
 # Misc
 .cache/
-
+.codex/

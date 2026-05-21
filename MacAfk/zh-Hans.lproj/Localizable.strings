@@ -8,7 +8,7 @@
 
 // Status Messages
 "status.preventing_sleep" = "正在防止休眠...";
-"status.system_sleep_allowed" = "通过鼠标抖动防止阻止系统休眠";
+"status.system_sleep_allowed" = "系统休眠未被阻止";
 
 // Buttons
 "button.start_jiggling" = "开始抖动";
@@ -26,10 +26,18 @@
 "settings.low_brightness_mode.help" = "抖动时自动降低亮度";
 "settings.shortcuts" = "快捷键";
 "settings.macafk_settings" = "MacAfk Pro 设置";
+"settings.window_title" = "MacAfk Pro 设置";
+"settings.sidebar.toggle" = "切换侧边栏";
 "settings.enable_low_brightness_mode" = "启用低亮度模式";
 "settings.toggle_jiggler_shortcut" = "切换抖动: Cmd + Ctrl + S";
 "settings.launch_at_login" = "开机自启动";
 "settings.launch_at_login.help" = "登录时自动启动 MacAfk Pro";
+"settings.debug" = "调试";
+
+// Debug
+"debug.skip_permission_prompts" = "跳过权限弹窗";
+"debug.skip_permission_prompts.help" = "不显示辅助功能权限相关弹窗（用于开发调试）";
+"debug.skip_permission_prompts.note" = "开启后不会弹出系统权限申请和自定义引导弹窗，但仍会静默检查权限状态。";
 
 // Jiggle Interval
 "jiggle.interval" = "抖动间隔:";
@@ -136,3 +144,96 @@
 "betterdisplay.connection_success" = "连接成功";
 "betterdisplay.connection_failed" = "连接失败";
 
+// Launch at Login
+"settings.launch_at_login.error" = "无法更新开机自启动设置，请在系统设置中重试。";
+"settings.launch_at_login.error.title" = "开机自启动设置失败";
+
+// Low Brightness Description
+"settings.low_brightness_mode.description" = "启用后，在抖动运行期间会降低屏幕亮度。内置屏使用硬件亮度控制；外接屏需启用 BetterDisplay 集成。";
+
+// Brightness Errors
+"brightness.error.display_services" = "DisplayServices 不可用，内置屏硬件亮度控制已禁用。";
+"brightness.error.betterdisplay_not_ready" = "BetterDisplay 未就绪，无法控制外接显示器亮度。";
+"brightness.error.external_unmapped" = "外接显示器 %u 未映射到 BetterDisplay。";
+"brightness.error.external_failed" = "外接显示器 %u 亮度设置失败。";
+"brightness.error.builtin_failed" = "内置显示器 %u 亮度设置失败。";
+
+// Shortcut Conflict
+"shortcut.editor.conflict.title" = "快捷键冲突";
+"shortcut.editor.conflict.message" = "该快捷键已被「%@」使用。";
+
+// Display Info
+"display.info" = "显示器信息";
+"display.info.display_id" = "Display ID";
+"display.info.uuid" = "UUID";
+"display.info.serial" = "序列号";
+"display.info.model" = "型号";
+"display.info.vendor" = "厂商";
+"display.info.alphanumeric_serial" = "字母序列号";
+"display.info.manufacture_date" = "制造日期";
+"display.brightness_test" = "亮度测试";
+"display.brightness_test.get_current" = "1. 获取当前亮度";
+"display.brightness_test.set_target" = "2. 设置指定亮度";
+"display.brightness_test.fetching" = "正在获取亮度...";
+"display.brightness_test.current" = "当前亮度: %d%%";
+"display.brightness_test.fetch_failed" = "获取亮度失败";
+"display.brightness_test.no_uuid" = "显示器无 UUID";
+"display.brightness_test.get_button" = "获取亮度";
+"display.brightness_test.setting" = "正在设置亮度...";
+"display.brightness_test.set_success" = "成功设置亮度为 %d%%";
+"display.brightness_test.set_failed" = "设置亮度失败";
+"display.brightness_test.set_button" = "设置亮度";
+"display.brightness_test.hint" = "测试功能仅针对当前选中的显示器，不会影响其他显示器的亮度设置。";
+
+// BetterDisplay Environment Check
+"betterdisplay.environment_check" = "环境检测";
+"betterdisplay.open_app" = "打开 BetterDisplay";
+"betterdisplay.display_list" = "显示器列表";
+"betterdisplay.no_displays" = "未检测到显示器";
+"betterdisplay.enable_hint" = "请启用 BetterDisplay 集成以管理外接显示器";
+"betterdisplay.environment_check.title" = "BetterDisplay 环境检测";
+"betterdisplay.environment_check.checking" = "正在检测...";
+"betterdisplay.environment_check.install" = "1. BetterDisplay 安装";
+"betterdisplay.environment_check.installed" = "已安装";
+"betterdisplay.environment_check.not_installed_status" = "未安装";
+"betterdisplay.environment_check.download" = "下载安装";
+"betterdisplay.environment_check.running" = "2. BetterDisplay 运行";
+"betterdisplay.environment_check.launch" = "启动应用";
+"betterdisplay.environment_check.connection" = "3. Integration API 连接";
+"betterdisplay.environment_check.guide" = "查看设置指南";
+"betterdisplay.environment_check.recheck" = "重新检测";
+"betterdisplay.environment_check.failure_title" = "连接失败可能的原因：";
+"betterdisplay.environment_check.failure_reason_1" = "• BetterDisplay 中未启用 Integration features";
+"betterdisplay.environment_check.failure_reason_2" = "• 需要重启 BetterDisplay 使设置生效";
+"sidebar.toggle" = "显示边栏";
+"timer.auto_lock.enabled" = "定时锁屏";
+"timer.auto_lock.help" = "到点后停止防休眠、恢复亮度并锁屏";
+"timer.auto_lock.description" = "开启后，开始抖动时会在指定时间后停止防休眠、恢复亮度并锁屏。";
+"timer.auto_lock.remaining" = "剩余 %@ 后锁屏";
+"timer.auto_lock.decrease" = "减少定时时长";
+"timer.auto_lock.increase" = "增加定时时长";
+"agent.auto_lock.title" = "AI Agent 完成后锁屏";
+"agent.auto_lock.enabled" = "Agent 完成后锁屏";
+"agent.auto_lock.help" = "当所有 AI Agent 完成后等待 5 分钟，再停止防休眠、恢复亮度并锁屏";
+"agent.auto_lock.description" = "收到 Agent 完成事件后等待 5 分钟；如果期间还有 Agent 在工作或有新任务开始，则自动取消本次锁屏。";
+"agent.auto_lock.setup_note" = "安装 Hooks 后支持 Codex、Claude、Qoder、Qwen、Factory、CodeBuddy、Cursor、Gemini 和 Kimi。已存在的配置会先备份再写入。";
+"agent.auto_lock.active_count" = "%d 个 Agent 正在工作";
+"agent.auto_lock.remaining" = "Agent 已完成，剩余 %@ 后锁屏";
+"agent.auto_lock.active_agents" = "活跃 Agent";
+"agent.auto_lock.countdown" = "锁屏倒计时";
+"agent.activity.title" = "运行中的 AI Agent";
+"agent.activity.empty" = "当前没有检测到运行中的 Agent";
+"agent.activity.hook_hint" = "安装 Hooks 后，正在工作的 Agent 会显示在这里。";
+"agent.activity.count" = "%d 个运行中";
+"agent.activity.running" = "运行中";
+"agent.activity.session" = "会话 %@";
+"agent.activity.expand" = "展开其余 %d 个";
+"agent.activity.collapse" = "收起";
+"agent.hooks.status" = "Hook 状态";
+"agent.hooks.status.all_installed" = "已安装全部 Agent Hooks";
+"agent.hooks.status.partial" = "已安装 %d/%d 个 Agent Hooks";
+"agent.hooks.status.not_installed" = "尚未安装 Agent Hooks";
+"agent.hooks.install" = "安装/更新 Hooks";
+"agent.hooks.uninstall" = "卸载 Hooks";
+"agent.hooks.refresh" = "刷新状态";
+"agent.hooks.error.title" = "Agent Hooks 设置失败";

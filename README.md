@@ -1,4 +1,4 @@
-# MacAfk - macOS Anti-Sleep Tool
+# MacAfk Pro - macOS Anti-Sleep Tool
 
 ![image](./assets/image.png)
 
@@ -25,36 +25,21 @@
 - **Adjustable Intervals** - 6 levels from 10 seconds to 10 minutes
 - **Imperceptible Operation** - 1-pixel movement, completely unobtrusive
 
-### 🌙 Smart Brightness Control
-- **Dual Mode Support**
-  - **Pro Version**: Real hardware brightness control (DisplayServices API)
-  - **Lite Version**: Software dimming (Gamma table, App Store compatible)
-- **Auto Detection** - Automatically selects the best mode based on runtime environment
-- **Low Brightness Mode** - One-click screen dimming to save power and extend battery life
+### 🌙 Smart Brightness Control (Pro)
+- **Built-in Display** - Real hardware brightness control via DisplayServices API
+- **External Displays** - Brightness control via [BetterDisplay](https://github.com/waydabber/BetterDisplay) Integration API
+- **Low Brightness Mode** - Automatically lowers brightness while jiggling is active
+- **Error Feedback** - Surfaces mapping and control failures in the UI
 
 ### ⌨️ Powerful Shortcut System
 - **Global Shortcuts** - Quick control even when running in background
-- **Fully Customizable** - Visual editor with real-time shortcut recording
+- **Fully Customizable** - Visual editor with conflict detection
 - **Auto Save** - Persistent configuration, retained after restart
 
 ### 🎨 Modern Interface
 - **SwiftUI Built** - Native macOS experience
 - **Menu Bar Integration** - Lightweight, doesn't occupy Dock space
-- **Intuitive Operation** - Clear status display at a glance
-
----
-
-## 📦 Dual Version Overview
-
-| Version | MacAfk Pro | MacAfk Lite |
-|---------|-----------|-------------|
-| **Brightness Control** | DisplayServices (Real Hardware) | Gamma Dimming (Software Simulation) |
-| **Power Saving** | ✅ Real power reduction | ❌ Screen backlight unchanged |
-| **Sandbox** | ❌ Disabled | ✅ Enabled |
-| **App Store** | ❌ Not available | ✅ Available |
-| **User Experience** | ⭐️⭐️⭐️⭐️⭐️ | ⭐️⭐️⭐️⭐️ |
-| **Distribution** | GitHub/Website | App Store |
-| **Target Users** | Best experience seekers | App Store version needed |
+- **Preferences Window** - Display, general, language, and update settings
 
 ---
 
@@ -62,20 +47,17 @@
 
 ### Download & Install
 
-#### Pro Version (Recommended)
+Download from GitHub Releases:
+
 ```bash
-# Download from GitHub Releases
 https://github.com/jiayuqi7813/macAFK-Pro/releases
 ```
-
-#### Lite Version
-- App Store: [Search "MacAfk Lite"](#)
 
 ### First Run
 
 1. **Grant Accessibility Permission**
    - Open "System Settings" → "Privacy & Security" → "Accessibility"
-   - Add MacAfk and enable it
+   - Add MacAfk Pro and enable it
 
 2. **Launch Application**
    - Click the menu bar icon
@@ -103,29 +85,22 @@ https://github.com/jiayuqi7813/macAFK-Pro/releases
 ## 🔧 Build from Source
 
 ### Requirements
-- macOS 10.15+
-- Xcode 14.0+
+- macOS 26.0+
+- Xcode 15.0+
 - Swift 5.0+
 
 ### Build Steps
 
-#### Quick Build
 ```bash
 cd MacAfk
 xcodebuild -scheme MacAfk -configuration Debug build
+xcodebuild -scheme MacAfk -configuration Release build
 ```
 
-#### Build Both Versions
+### Run Tests
+
 ```bash
-# Using automated script
-./build.sh
-
-# Or manual build
-# Pro Version (Real brightness)
-xcodebuild -scheme MacAfk -configuration Release build
-
-# Lite Version (Gamma dimming)
-xcodebuild -scheme MacAfk -configuration Release-AppStore build
+xcodebuild -scheme MacAfk -destination 'platform=macOS' test
 ```
 
 ---
@@ -150,12 +125,6 @@ Problem: Need to maintain connection but temporarily away
 Solution: ⌘ ⌃ S to keep active, avoid disconnection
 ```
 
-### Case 4: Video Playback 🎬
-```
-Problem: System auto-sleeps during video playback
-Solution: Enable anti-sleep for uninterrupted viewing experience
-```
-
 ---
 
 ## 🛠️ Technical Architecture
@@ -163,14 +132,16 @@ Solution: Enable anti-sleep for uninterrupted viewing experience
 ```
 MacAfk
 ├── AppModel.swift              # Application state management
-├── BrightnessControl.swift     # Dual-mode brightness control
+├── BrightnessControl.swift     # DisplayServices + BetterDisplay brightness
+├── BetterDisplayManager.swift  # BetterDisplay Integration API client
 ├── Jiggler.swift               # Mouse jiggling engine
 ├── ShortcutManager.swift       # Shortcut management system
 ├── ShortcutEditorView.swift    # Shortcut editor
 ├── ContentView.swift           # Main interface
-├── SettingsView.swift          # Settings interface
+├── NewPreferencesView.swift    # Preferences interface
 └── AppDelegate.swift           # Menu bar integration
 ```
+
 ---
 
 ## 🤝 Contributing
@@ -184,40 +155,39 @@ Contributions, issues, and feature requests are welcome!
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-### Code Style
-- Follow Swift official code style guidelines
-- Add necessary comments
-- Update relevant documentation
-
 ---
 
 ## ❓ FAQ
 
 ### Q: "File is damaged" error when installing from GitHub Release?
-A: This is a macOS Gatekeeper security feature. Since the app is not notarized (to comply with App Store guidelines), you need to remove the quarantine attribute. Run this command in Terminal:
+A: This is a macOS Gatekeeper security feature. Since the app is not notarized, remove the quarantine attribute:
+
 ```bash
 xattr -cr /Applications/MacAfk\ Pro.app/
 ```
-Then try opening the app again. Alternatively, you can right-click the app and select "Open" instead of double-clicking.
+
+Then try opening the app again, or right-click and select "Open".
 
 ### Q: Shortcuts not working?
-A: Please ensure MacAfk has been granted permission in "System Settings" → "Privacy & Security" → "Accessibility".
+A: Grant MacAfk Pro permission in "System Settings" → "Privacy & Security" → "Accessibility".
 
 ### Q: Does it support external displays?
-A: Yes, Pro version supports brightness control for multiple displays.
+A: Yes. MacAfk Pro controls built-in displays natively and external displays via BetterDisplay.
 
 **Technical Approach:**
-- **Built-in Display**: Uses DisplayServices API (native hardware control)
-- **External Displays**: Based on [BetterDisplay](https://github.com/waydabber/BetterDisplay) integration interface
+- **Built-in Display**: DisplayServices API (native hardware control)
+- **External Displays**: [BetterDisplay](https://github.com/waydabber/BetterDisplay) Integration API
 
-Due to technical cost considerations, external display brightness control is implemented using BetterDisplay's [Integration API](https://github.com/waydabber/BetterDisplay/wiki/Integration-features,-CLI). This solution is mature, stable, and supports a wide range of external display models.
-
-**Prerequisites:**
+**Prerequisites for external displays:**
 1. Install [BetterDisplay](https://github.com/waydabber/BetterDisplay) (free version works)
 2. Enable "Integration features" in BetterDisplay settings
-3. MacAfk will automatically detect and connect to BetterDisplay
+3. Enable BetterDisplay integration in MacAfk Pro preferences
 
-**Note:** Lite version only supports the main display.
+**Pro capability boundaries:**
+- Requires macOS 26.0+
+- No App Sandbox (needed for DisplayServices and global shortcuts)
+- External display brightness depends on BetterDisplay being installed, running, and connected
+- Launch at login uses `SMAppService` and reflects the actual system state
 
 ---
 
@@ -230,6 +200,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [MonitorControl](https://github.com/MonitorControl/MonitorControl) - Brightness control implementation reference
+- [BetterDisplay](https://github.com/waydabber/BetterDisplay) - External display brightness integration
 - SwiftUI Community - Technical support
 
 ---
@@ -241,4 +212,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <p align="center">
   Made with ❤️ by Sn1waR
 </p>
-

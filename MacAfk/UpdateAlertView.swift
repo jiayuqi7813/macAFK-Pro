@@ -1,162 +1,108 @@
 import SwiftUI
 
+// swiftui-navigation: sheet + NavigationStack；swiftui-layout-components: Form + ContentUnavailableView
+extension GitHubRelease: Identifiable {
+    var id: String { tagName }
+}
+
 struct UpdateAlertView: View {
     @ObservedObject var updateManager: UpdateManager
-    @Binding var isPresented: Bool
     let release: GitHubRelease
-    
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        VStack(spacing: 20) {
-            // 标题
-            HStack {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(.blue)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("update.available.title".localized)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text(release.tagName)
-                        .font(.headline)
-                        .foregroundColor(.secondary)
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("update.available.title".localized, value: release.tagName)
                 }
-                
-                Spacer()
-                
-                Button {
-                    isPresented = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.title2)
-                }
-                .buttonStyle(.plain)
-            }
-            
-            Divider()
-            
-            // 更新内容
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+
+                Section("update.release_notes".localized) {
                     if let body = release.body, !body.isEmpty {
-                        Text("update.release_notes".localized)
-                            .font(.headline)
-                        
                         Text(body)
                             .font(.body)
-                            .foregroundColor(.secondary)
+                            .foregroundStyle(.secondary)
                             .textSelection(.enabled)
+                    } else {
+                        ContentUnavailableView(
+                            "update.release_notes".localized,
+                            systemImage: "doc.text",
+                            description: Text("update.up_to_date".localized)
+                        )
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                downloadStatusSection
             }
-            .frame(height: 200)
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .textBackgroundColor))
-            )
-            
-            // 下载状态
-            if case .downloading(let progress) = updateManager.updateStatus {
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("update.downloading".localized)
-                            .font(.subheadline)
-                        Spacer()
-                        Text("\(Int(progress * 100))%")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+            .formStyle(.grouped)
+            .navigationTitle("update.available.title".localized)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel".localized) {
+                        dismiss()
                     }
-                    
-                    ProgressView(value: progress)
-                        .progressViewStyle(.linear)
                 }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.blue.opacity(0.1))
-                )
-            }
-            
-            // 错误信息
-            if case .error(let message) = updateManager.updateStatus {
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                    Text(message)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.orange.opacity(0.1))
-                )
-            }
-            
-            Divider()
-            
-            // 按钮
-            HStack(spacing: 12) {
-                Button {
-                    isPresented = false
-                } label: {
-                    Text("button.cancel".localized)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                
-                Button {
-                    updateManager.openGitHubRelease(url: release.htmlUrl)
-                } label: {
-                    HStack {
-                        Image(systemName: "link")
-                        Text("update.open_github".localized)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                
-                if case .downloading = updateManager.updateStatus {
+                ToolbarItemGroup(placement: .primaryAction) {
                     Button {
-                        updateManager.cancelDownload()
+                        updateManager.openGitHubRelease(url: release.htmlUrl)
                     } label: {
-                        Text("update.cancel_download".localized)
-                            .frame(maxWidth: .infinity)
+                        Label("update.open_github".localized, systemImage: "link")
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                } else if case .error = updateManager.updateStatus {
-                    Button {
-                        updateManager.downloadAndInstall(release: release)
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("update.retry".localized)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Button {
-                        updateManager.downloadAndInstall(release: release)
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.down.circle.fill")
-                            Text("update.download_install".localized)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
+
+                    primaryDownloadButton
                 }
             }
         }
-        .padding(24)
-        .frame(width: 550, height: 450)
+        .frame(minWidth: 480, minHeight: 400)
+    }
+
+    @ViewBuilder
+    private var downloadStatusSection: some View {
+        if case .downloading(let progress) = updateManager.updateStatus {
+            Section("update.downloading".localized) {
+                ProgressView(value: progress)
+                LabeledContent {
+                    Text("\(Int(progress * 100))%")
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                } label: {
+                    EmptyView()
+                }
+            }
+        }
+
+        if case .error(let message) = updateManager.updateStatus {
+            Section {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var primaryDownloadButton: some View {
+        if case .downloading = updateManager.updateStatus {
+            Button {
+                updateManager.cancelDownload()
+            } label: {
+                Text("update.cancel_download".localized)
+            }
+            .tint(.red)
+        } else if case .error = updateManager.updateStatus {
+            Button {
+                updateManager.downloadAndInstall(release: release)
+            } label: {
+                Label("update.retry".localized, systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
+        } else {
+            Button {
+                updateManager.downloadAndInstall(release: release)
+            } label: {
+                Label("update.download_install".localized, systemImage: "arrow.down.circle.fill")
+            }
+            .buttonStyle(.borderedProminent)
+        }
     }
 }
-

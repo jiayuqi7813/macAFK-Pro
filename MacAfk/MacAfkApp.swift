@@ -13,9 +13,16 @@ struct MacAfkApp: App {
     @StateObject private var languageManager = LanguageManager.shared
     
     var body: some Scene {
-        // 菜单栏应用不需要主窗口，所有UI通过AppDelegate管理
         Settings {
             EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("menu.preferences".localized) {
+                    appDelegate.showPreferences()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }

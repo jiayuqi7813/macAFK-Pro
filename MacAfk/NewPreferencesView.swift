@@ -1,14 +1,14 @@
 import SwiftUI
 import AppKit
 
-enum SettingsTab: String, CaseIterable, Identifiable {
-    case displays = "显示设置"
-    case general = "常规设置"
-    case language = "语言"
-    case update = "更新"
-    
+enum SettingsTab: String, CaseIterable, Identifiable, Hashable {
+    case displays
+    case general
+    case language
+    case update
+
     var id: String { rawValue }
-    
+
     var icon: String {
         switch self {
         case .displays: return "display.2"
@@ -17,7 +17,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .update: return "arrow.down.circle"
         }
     }
-    
+
     var localizedKey: String {
         switch self {
         case .displays: return "settings.displays"
@@ -28,54 +28,82 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     }
 }
 
+// swiftui-navigation: NavigationSplitView 设置风格；swiftui-patterns: platform-and-sharing macOS Settings
 struct NewPreferencesView: View {
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var appModel: AppModel
-    @Environment(\.dismiss) private var dismiss
-    
-    @State private var selectedTab: SettingsTab = .displays
-    @State private var selectedDisplay: BetterDisplayInfo?
+
+    @StateObject private var updateManager = UpdateManager.shared
+    @StateObject private var betterDisplayManager = BetterDisplayManager.shared
+
+    @State private var selectedDisplayID: String?
+    @State private var preferredColumn: NavigationSplitViewColumn = .detail
     @State private var showRestartAlert = false
     @State private var previewBrightness: Float = 0.0
     @State private var isPreviewing = false
-    @StateObject private var updateManager = UpdateManager.shared
-    @StateObject private var betterDisplayManager = BetterDisplayManager.shared
-    @State private var showUpdateAlert = false
-    @State private var latestRelease: GitHubRelease?
-    
-    // 显示器测试状态
+    @State private var updateRelease: GitHubRelease?
+
     @State private var testBrightness: Float = 0.5
-    @State private var currentBrightness: Float? = nil
+    @State private var currentBrightness: Float?
     @State private var testMessage: String = ""
     @State private var isTestingBrightness = false
-    
-    // 环境检测状态
+
     @State private var showEnvironmentCheck = false
     @State private var isCheckingEnvironment = false
     @State private var checkResults: (installed: Bool, running: Bool, connected: Bool) = (false, false, false)
-    
+
     var body: some View {
-        VStack(spacing: 0) {
-            titleBar
-            Divider()
-            
-            HStack(spacing: 0) {
-                // 左侧侧边栏
-                sidebar
-                    .frame(width: 200)
-                
-                Divider()
-                
-                // 右侧内容区
-                contentArea
+        NavigationSplitView(preferredCompactColumn: $preferredColumn) {
+            List {
+                Section {
+                    ForEach(SettingsTab.allCases) { tab in
+                        NavigationLink(value: tab) {
+                            Label(tab.localizedKey.localized, systemImage: tab.icon)
+                                .font(.title3.weight(.medium))
+                                .padding(.vertical, 5)
+                        }
+                    }
+                }
             }
-            
-            Divider()
-            bottomBar
+            .navigationDestination(for: SettingsTab.self) { tab in
+                NavigationStack {
+                    detailContent(for: tab)
+                }
+            }
+            .listStyle(.sidebar)
+            .contentMargins(.top, 74, for: .scrollContent)
+            .frame(minWidth: 280)
+            .navigationSplitViewColumnWidth(min: 300, ideal: 315, max: 340)
+        } detail: {
+            NavigationStack {
+                detailContent(for: .displays)
+            }
         }
-        .frame(width: 800, height: 600)
+        .frame(
+            minWidth: 900,
+            idealWidth: 1_180,
+            maxWidth: 1_520,
+            minHeight: 560,
+            idealHeight: 720,
+            maxHeight: 980
+        )
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+                } label: {
+                    Label("sidebar.toggle".localized, systemImage: "sidebar.left")
+                }
+                .labelStyle(.iconOnly)
+                .help("sidebar.toggle".localized)
+                .accessibilityLabel("sidebar.toggle".localized)
+            }
+        }
+        .toolbar(removing: .title)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .onAppear {
             previewBrightness = appModel.lowBrightnessLevel
+            appModel.refreshAgentHookStatus()
             betterDisplayManager.checkInstallation()
             if betterDisplayManager.isInstalled && betterDisplayManager.isEnabled {
                 betterDisplayManager.refreshDisplays()
@@ -92,87 +120,36 @@ struct NewPreferencesView: View {
                 showRestartAlert = false
             }
         }
-        .sheet(isPresented: $showUpdateAlert) {
-            if let release = latestRelease {
-                UpdateAlertView(updateManager: updateManager, isPresented: $showUpdateAlert, release: release)
+        .alert("agent.hooks.error.title".localized, isPresented: Binding(
+            get: { appModel.agentHookSetupError != nil },
+            set: { if !$0 { appModel.agentHookSetupError = nil } }
+        )) {
+            Button("button.done".localized) {
+                appModel.agentHookSetupError = nil
             }
+        } message: {
+            if let error = appModel.agentHookSetupError {
+                Text(error)
+            }
+        }
+        .sheet(item: $updateRelease) { release in
+            UpdateAlertView(updateManager: updateManager, release: release)
+                .presentationSizing(.form)
         }
         .sheet(isPresented: $showEnvironmentCheck) {
             environmentCheckDialog
         }
         .onChange(of: updateManager.updateStatus) { _, newStatus in
             if case .available(let release) = newStatus {
-                latestRelease = release
-                showUpdateAlert = true
+                updateRelease = release
             }
         }
     }
-    
-    // MARK: - Title Bar
-    
-    private var titleBar: some View {
-        HStack {
-            Text("menu.preferences".localized)
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            Spacer()
-            
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.secondary)
-                    .font(.title2)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-    }
-    
-    // MARK: - Sidebar
-    
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(SettingsTab.allCases, id: \.self) { tab in
-                HStack {
-                    Image(systemName: tab.icon)
-                        .foregroundColor(selectedTab == tab ? .white : .primary)
-                        .frame(width: 20)
-                    
-                    Text(tab.localizedKey.localized)
-                        .foregroundColor(selectedTab == tab ? .white : .primary)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(
-                    selectedTab == tab ? Color.accentColor : Color.clear
-                )
-                .cornerRadius(6)
-                .contentShape(Rectangle()) // 确保整个矩形区域都可以点击
-                .onTapGesture {
-                    selectedTab = tab
-                    if tab == .displays {
-                        selectedDisplay = nil
-                    }
-                }
-                .padding(.horizontal, 8)
-            }
-            
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .background(Color(nsColor: .windowBackgroundColor))
-    }
-    
-    // MARK: - Content Area
-    
-    private var contentArea: some View {
+
+    @ViewBuilder
+    private func detailContent(for tab: SettingsTab) -> some View {
         Group {
-            switch selectedTab {
+            switch tab {
             case .displays:
                 displaysContent
             case .general:
@@ -183,822 +160,684 @@ struct NewPreferencesView: View {
                 updateContent
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-    
-    // MARK: - Displays Content
-    
+
+    // MARK: - Displays
+
     private var displaysContent: some View {
-        HStack(spacing: 0) {
-            // 显示器列表
-            displaysList
-                .frame(width: 250)
-            
-            Divider()
-            
-            // 显示器详情
-            displayDetail
-        }
-    }
-    
-    private var displaysList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // BetterDisplay 状态
-            VStack(alignment: .leading, spacing: 12) {
-                Text("betterdisplay.title".localized)
-                    .font(.headline)
-                    .padding(.horizontal)
-                    .padding(.top, 16)
-                
-                if betterDisplayManager.isInstalled {
-                    VStack(alignment: .leading, spacing: 8) {
-                        // 运行状态指示
-                        HStack {
-                            Circle()
-                                .fill(betterDisplayManager.isRunning ? Color.green : Color.red)
-                                .frame(width: 8, height: 8)
-                            Text((betterDisplayManager.isRunning ? "betterdisplay.running" : "betterdisplay.not_running").localized)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Toggle("betterdisplay.enable_integration".localized, isOn: Binding(
-                            get: { betterDisplayManager.isEnabled },
-                            set: { newValue in
-                                betterDisplayManager.setEnabled(newValue)
-                                appModel.brightnessControl.updateDisplayMapping()
-                                if newValue {
-                                    betterDisplayManager.testConnection { success in
-                                        if success {
-                                            betterDisplayManager.refreshDisplays()
-                                        }
-                                    }
-                                }
-                            }
-                        ))
-                        .toggleStyle(.switch)
-                        .disabled(!betterDisplayManager.isRunning)
-                        
-                        HStack(spacing: 8) {
-                            // 测试连接按钮
-                            Button {
-                                betterDisplayManager.testConnection { success in
-                                    if success {
-                                        betterDisplayManager.refreshDisplays()
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "antenna.radiowaves.left.and.right")
-                                    Text("betterdisplay.test_connection".localized)
-                                }
-                                .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            
-                            // 环境检测按钮
-                            Button {
-                                performEnvironmentCheck()
-                            } label: {
-                                HStack {
-                                    Image(systemName: "checkmark.shield")
-                                    Text("环境检测")
-                                }
-                                .font(.caption)
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
-                    .padding(.horizontal)
-                } else {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                        Text("betterdisplay.not_installed".localized)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal)
-                    
-                    Button {
-                        if let url = URL(string: "https://github.com/waydabber/BetterDisplay") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "safari")
-                            Text("Open BetterDisplay")
-                        }
-                        .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .padding(.horizontal)
-                }
+        Form {
+            betterDisplaySection
+
+            if betterDisplayManager.isEnabled {
+                displaySelectionSection
             }
-            .padding(.bottom, 12)
-            
-            Divider()
-            
-            // 显示器列表
-            if betterDisplayManager.isEnabled && !betterDisplayManager.displays.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("显示器列表")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                        
-                        ForEach(betterDisplayManager.displays) { display in
-                            displayListItem(display)
-                        }
-                    }
-                    .padding(.bottom, 12)
-                }
-            } else if betterDisplayManager.isEnabled {
-                VStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "display.trianglebadge.exclamationmark")
-                            .font(.system(size: 40))
-                            .foregroundColor(.secondary)
-                        Text("未检测到显示器")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Button {
-                            betterDisplayManager.refreshDisplays()
-                            appModel.brightnessControl.updateDisplayMapping()
-                        } label: {
-                            HStack {
-                                Image(systemName: "arrow.clockwise")
-                                Text("betterdisplay.refresh_displays".localized)
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
+
+            if let display = selectedDisplay {
+                displayInfoSections(for: display)
+                displayBrightnessTestSection(for: display)
             } else {
-                VStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "display.2")
-                            .font(.system(size: 40))
-                            .foregroundColor(.secondary)
-                        Text("请启用 BetterDisplay 集成")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
+                globalBrightnessSections
             }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-    }
-    
-    private func displayListItem(_ display: BetterDisplayInfo) -> some View {
-        Button(action: {
-            selectedDisplay = display
-            // 清空测试状态
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: selectedDisplayID) { _, _ in
             currentBrightness = nil
             testMessage = ""
-        }) {
-            HStack {
-                Image(systemName: "display")
-                    .foregroundColor(selectedDisplay?.id == display.id ? .white : .primary)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(display.name)
-                        .font(.subheadline)
-                        .foregroundColor(selectedDisplay?.id == display.id ? .white : .primary)
-                    
-                    Text("ID: \(display.displayID)")
-                        .font(.caption)
-                        .foregroundColor(selectedDisplay?.id == display.id ? .white.opacity(0.8) : .secondary)
+        }
+    }
+
+    private var selectedDisplay: BetterDisplayInfo? {
+        guard let selectedDisplayID else { return nil }
+        return betterDisplayManager.displays.first { $0.id == selectedDisplayID }
+    }
+
+    @ViewBuilder
+    private var betterDisplaySection: some View {
+        Section("betterdisplay.title".localized) {
+            if betterDisplayManager.isInstalled {
+                Label(
+                    betterDisplayManager.isRunning
+                        ? "betterdisplay.running".localized
+                        : "betterdisplay.not_running".localized,
+                    systemImage: betterDisplayManager.isRunning ? "checkmark.circle.fill" : "circle"
+                )
+                .foregroundStyle(betterDisplayManager.isRunning ? .green : .secondary)
+                .font(.caption)
+
+                Toggle("betterdisplay.enable_integration".localized, isOn: Binding(
+                    get: { betterDisplayManager.isEnabled },
+                    set: { newValue in
+                        betterDisplayManager.setEnabled(newValue)
+                        appModel.brightnessControl.updateDisplayMapping()
+                        if newValue {
+                            betterDisplayManager.testConnection { success in
+                                if success {
+                                    betterDisplayManager.refreshDisplays()
+                                }
+                            }
+                        }
+                    }
+                ))
+                .disabled(!betterDisplayManager.isRunning)
+
+                HStack {
+                    if betterDisplayManager.isEnabled {
+                        Button("betterdisplay.refresh_displays".localized) {
+                            betterDisplayManager.refreshDisplays()
+                            appModel.brightnessControl.updateDisplayMapping()
+                        }
+                        .buttonStyle(.glass)
+                    }
+
+                    Button("betterdisplay.test_connection".localized) {
+                        betterDisplayManager.testConnection { success in
+                            if success {
+                                betterDisplayManager.refreshDisplays()
+                            }
+                        }
+                    }
+                    .buttonStyle(.glass)
+
+                    Button("betterdisplay.environment_check".localized) {
+                        performEnvironmentCheck()
+                    }
+                    .buttonStyle(.glass)
+
+                    Spacer()
                 }
-                
-                Spacer()
+            } else {
+                Label("betterdisplay.not_installed".localized, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+
+                Button("betterdisplay.open_app".localized) {
+                    if let url = URL(string: "https://github.com/waydabber/BetterDisplay") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.glass)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                selectedDisplay?.id == display.id ? Color.accentColor : Color.clear
-            )
-            .cornerRadius(6)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-    }
-    
-    private var displayDetail: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if let display = selectedDisplay {
-                    // 显示器详情
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Image(systemName: "display")
-                                .font(.largeTitle)
-                                .foregroundColor(.accentColor)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(display.name)
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                Text(display.productName ?? display.name)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // 显示器信息
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("显示器信息")
-                                .font(.headline)
-                            
-                            if let displayID = display.displayID {
-                                infoRow(label: "Display ID", value: displayID)
-                            }
-                            if let uuid = display.UUID {
-                                infoRow(label: "UUID", value: uuid)
-                            }
-                            if let serial = display.serial {
-                                infoRow(label: "序列号", value: serial)
-                            }
-                            if let model = display.model {
-                                infoRow(label: "型号", value: model)
-                            }
-                            if let vendor = display.vendor {
-                                infoRow(label: "厂商", value: vendor)
-                            }
-                            if let alphanumericSerial = display.alphanumericSerial, !alphanumericSerial.isEmpty {
-                                infoRow(label: "字母序列号", value: alphanumericSerial)
-                            }
-                            if let year = display.yearOfManufacture, let week = display.weekOfManufacture {
-                                infoRow(label: "制造日期", value: "\(year) 年第 \(week) 周")
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // 亮度测试区域
-                        displayBrightnessTest(for: display)
-                    }
-                } else {
-                    // 亮度设置
-                    VStack(alignment: .leading, spacing: 20) {
-                        HStack {
-                            Image(systemName: "sun.max.fill")
-                                .font(.largeTitle)
-                                .foregroundColor(.orange)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("settings.low_brightness".localized)
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                
-                                Text("settings.brightness_preview_hint".localized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                Text("settings.brightness_level".localized)
-                                    .foregroundColor(.primary)
-                                
-                                Spacer()
-                                
-                                Text("\(Int(appModel.lowBrightnessLevel * 100))%")
-                                    .foregroundColor(.secondary)
-                                    .font(.system(.body, design: .monospaced))
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                Slider(value: Binding(
-                                    get: { appModel.lowBrightnessLevel },
-                                    set: { newValue in
-                                        appModel.lowBrightnessLevel = newValue
-                                        if isPreviewing {
-                                            previewBrightness = newValue
-                                            appModel.brightnessControl.setCustomBrightness(level: newValue)
-                                        }
-                                    }
-                                ), in: 0...1)
-                                .accentColor(.orange)
-                                
-                                HStack {
-                                    Text("0%")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    Spacer()
-                                    
-                                    Text("100%")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            HStack(spacing: 12) {
-                                Button {
-                                    if isPreviewing {
-                                        appModel.brightnessControl.restoreBrightness()
-                                        isPreviewing = false
-                                    } else {
-                                        previewBrightness = appModel.lowBrightnessLevel
-                                        appModel.brightnessControl.setLowestBrightness(level: appModel.lowBrightnessLevel)
-                                        isPreviewing = true
-                                    }
-                                } label: {
-                                    HStack {
-                                        Image(systemName: isPreviewing ? "eye.slash.fill" : "eye.fill")
-                                        Text(isPreviewing ? "settings.stop_preview".localized : "settings.preview_brightness".localized)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.regular)
-                                
-                                if isPreviewing {
-                                    Button {
-                                        appModel.brightnessControl.restoreBrightness()
-                                        isPreviewing = false
-                                    } label: {
-                                        Text("settings.restore_brightness".localized)
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.regular)
-                                }
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        if !betterDisplayManager.isEnabled {
-                            HStack(alignment: .top) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                Text("betterdisplay.disabled_warning".localized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        } else {
-                            HStack(alignment: .top) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                Text("betterdisplay.integration_hint".localized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(20)
         }
     }
-    
-    private func infoRow(label: String, value: String) -> some View {
-        HStack(alignment: .top) {
-            Text(label)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .leading)
-            
-            Text(value)
-                .font(.subheadline)
-                .foregroundColor(.primary)
-                .textSelection(.enabled)
-            
-            Spacer()
-        }
-    }
-    
-    // MARK: - Display Brightness Test
-    
-    private func displayBrightnessTest(for display: BetterDisplayInfo) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("亮度测试")
-                .font(.headline)
-            
-            VStack(alignment: .leading, spacing: 12) {
-                // 1. 获取当前亮度
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("1. 获取当前亮度")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    HStack(spacing: 12) {
-                        Button {
-                            if let uuid = display.UUID {
-                                isTestingBrightness = true
-                                testMessage = "正在获取亮度..."
-                                
-                                betterDisplayManager.cacheBrightnessByUUID(uuid: uuid) { brightness in
-                                    DispatchQueue.main.async {
-                                        isTestingBrightness = false
-                                        if let brightness = brightness {
-                                            currentBrightness = brightness
-                                            testMessage = "✅ 当前亮度: \(Int(brightness * 100))%"
-                                        } else {
-                                            testMessage = "❌ 获取亮度失败"
-                                        }
-                                    }
-                                }
-                            } else {
-                                testMessage = "❌ 显示器无 UUID"
-                            }
-                        } label: {
-                            HStack {
-                                if isTestingBrightness {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .frame(width: 16, height: 16)
-                                } else {
-                                    Image(systemName: "lightbulb.fill")
-                                }
-                                Text("获取亮度")
-                            }
-                            .frame(width: 120)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isTestingBrightness || display.UUID == nil)
-                        
-                        if let brightness = currentBrightness {
-                            Text("\(Int(brightness * 100))%")
-                                .font(.system(.title3, design: .monospaced))
-                                .fontWeight(.semibold)
-                                .foregroundColor(.accentColor)
-                        }
-                    }
-                }
-                
-                Divider()
-                
-                // 2. 设置指定亮度
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("2. 设置指定亮度")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Slider(value: $testBrightness, in: 0...1)
-                                    .frame(width: 200)
-                                
-                                Text("\(Int(testBrightness * 100))%")
-                                    .font(.system(.body, design: .monospaced))
-                                    .frame(width: 50, alignment: .trailing)
-                            }
-                            
-                            HStack {
-                                Text("0%")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text("100%")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(width: 200)
-                        }
-                        
-                        Button {
-                            if let uuid = display.UUID {
-                                isTestingBrightness = true
-                                testMessage = "正在设置亮度..."
-                                
-                                betterDisplayManager.setBrightnessByUUID(uuid: uuid, brightness: testBrightness) { success in
-                                    DispatchQueue.main.async {
-                                        isTestingBrightness = false
-                                        if success {
-                                            testMessage = "✅ 成功设置亮度为 \(Int(testBrightness * 100))%"
-                                        } else {
-                                            testMessage = "❌ 设置亮度失败"
-                                        }
-                                    }
-                                }
-                            } else {
-                                testMessage = "❌ 显示器无 UUID"
-                            }
-                        } label: {
-                            HStack {
-                                if isTestingBrightness {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .frame(width: 16, height: 16)
-                                } else {
-                                    Image(systemName: "sun.max.fill")
-                                }
-                                Text("设置亮度")
-                            }
-                            .frame(width: 120)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(isTestingBrightness || display.UUID == nil)
-                    }
-                }
-                
-                // 测试消息显示
-                if !testMessage.isEmpty {
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: testMessage.hasPrefix("✅") ? "checkmark.circle.fill" : testMessage.hasPrefix("❌") ? "xmark.circle.fill" : "info.circle.fill")
-                            .foregroundColor(testMessage.hasPrefix("✅") ? .green : testMessage.hasPrefix("❌") ? .red : .blue)
-                            .font(.caption)
-                        
-                        Text(testMessage)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .controlBackgroundColor))
+
+    @ViewBuilder
+    private var displaySelectionSection: some View {
+        Section("betterdisplay.display_list".localized) {
+            if betterDisplayManager.displays.isEmpty {
+                Label(
+                    "betterdisplay.no_displays".localized,
+                    systemImage: "display.trianglebadge.exclamationmark"
+                )
+                .foregroundStyle(.secondary)
+            } else {
+                displaySelectionButton(
+                    title: "settings.low_brightness".localized,
+                    detail: nil,
+                    id: nil
+                )
+
+                ForEach(betterDisplayManager.displays) { display in
+                    displaySelectionButton(
+                        title: display.name,
+                        detail: display.displayID.map { "ID: \($0)" },
+                        id: display.id
                     )
                 }
-                
-                // 提示信息
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "lightbulb.fill")
-                        .foregroundColor(.orange)
-                        .font(.caption)
-                    
-                    Text("测试功能仅针对当前选中的显示器，不会影响其他显示器的亮度设置")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-            )
         }
     }
-    
-    // MARK: - General Content
-    
-    private var generalContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Image(systemName: "gearshape.fill")
-                        .font(.largeTitle)
-                        .foregroundColor(.gray)
-                    
-                    Text("settings.macafk_settings".localized)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
-                        .toggleStyle(.switch)
-                        .help("settings.launch_at_login.help".localized)
-                }
-            }
-            .padding(20)
-        }
-    }
-    
-    // MARK: - Language Content
-    
-    private var languageContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Image(systemName: "globe")
-                        .font(.largeTitle)
-                        .foregroundColor(.blue)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("menu.language".localized)
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("menu.language.restart_required".localized)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(AppLanguage.allCases, id: \.self) { language in
-                        languageButton(for: language)
-                    }
-                }
-            }
-            .padding(20)
-        }
-    }
-    
-    private func languageButton(for language: AppLanguage) -> some View {
-        Button(action: {
-            if languageManager.currentLanguage != language {
-                languageManager.setLanguage(language)
-                showRestartAlert = true
-            }
-        }) {
-            HStack {
-                Image(systemName: languageManager.currentLanguage == language ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(languageManager.currentLanguage == language ? .blue : .secondary)
-                
-                Text(language.localizedDisplayName)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-            }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(languageManager.currentLanguage == language ? Color.blue.opacity(0.1) : Color.clear)
+
+    private func displaySelectionButton(title: String, detail: String?, id: String?) -> some View {
+        Button {
+            selectedDisplayID = id
+        } label: {
+            DisplaySelectionRow(
+                title: title,
+                detail: detail,
+                isSelected: selectedDisplayID == id
             )
         }
         .buttonStyle(.plain)
     }
-    
-    // MARK: - Update Content
-    
-    private var updateContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.largeTitle)
-                        .foregroundColor(.green)
-                    
-                    Text("update.check_for_updates".localized)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                }
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("update.current_version".localized)
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        Text(getCurrentVersion())
-                            .foregroundColor(.secondary)
-                            .font(.system(.body, design: .monospaced))
+
+    private struct DisplaySelectionRow: View {
+        let title: String
+        let detail: String?
+        let isSelected: Bool
+
+        var body: some View {
+            HStack(spacing: 10) {
+                Image(systemName: "display")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .lineLimit(1)
+
+                    if let detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
                     }
-                    
-                    updateStatusView
-                    
-                    Button {
-                        updateManager.checkForUpdates(silent: false)
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("update.check_now".localized)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.regular)
-                    .disabled(isCheckingUpdate)
                 }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .clear)
             }
-            .padding(20)
+            .contentShape(Rectangle())
+            .accessibilityElement(children: .combine)
         }
     }
-    
+
+    @ViewBuilder
+    private var globalBrightnessSections: some View {
+        Section("settings.low_brightness".localized) {
+            Text("settings.brightness_preview_hint".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            LabeledContent("settings.brightness_level".localized) {
+                Text("\(Int(appModel.lowBrightnessLevel * 100))%")
+                    .monospacedDigit()
+            }
+
+            Slider(value: Binding(
+                get: { appModel.lowBrightnessLevel },
+                set: { newValue in
+                    appModel.lowBrightnessLevel = newValue
+                    if isPreviewing {
+                        previewBrightness = newValue
+                        appModel.brightnessControl.setCustomBrightness(level: newValue)
+                    }
+                }
+            ), in: 0...1)
+
+            HStack {
+                Button {
+                    if isPreviewing {
+                        appModel.brightnessControl.restoreBrightness()
+                        isPreviewing = false
+                    } else {
+                        previewBrightness = appModel.lowBrightnessLevel
+                        appModel.brightnessControl.setLowestBrightness(level: appModel.lowBrightnessLevel)
+                        isPreviewing = true
+                    }
+                } label: {
+                    Label(
+                        isPreviewing ? "settings.stop_preview".localized : "settings.preview_brightness".localized,
+                        systemImage: isPreviewing ? "eye.slash.fill" : "eye.fill"
+                    )
+                }
+                .buttonStyle(.glass)
+
+                if isPreviewing {
+                    Button("settings.restore_brightness".localized) {
+                        appModel.brightnessControl.restoreBrightness()
+                        isPreviewing = false
+                    }
+                    .buttonStyle(.glass)
+                }
+            }
+        }
+
+        if !appModel.brightnessControl.issues.isEmpty {
+            Section {
+                ForEach(appModel.brightnessControl.issues) { issue in
+                    Label(issue.localizedMessage, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+
+        Section {
+            if !betterDisplayManager.isEnabled {
+                Label("betterdisplay.disabled_warning".localized, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+            } else {
+                Label("betterdisplay.integration_hint".localized, systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.caption)
+            }
+        }
+
+        if betterDisplayManager.isEnabled && betterDisplayManager.displays.isEmpty {
+            Section {
+                Button("betterdisplay.refresh_displays".localized) {
+                    betterDisplayManager.refreshDisplays()
+                    appModel.brightnessControl.updateDisplayMapping()
+                }
+                .buttonStyle(.glass)
+            }
+        }
+
+        if !betterDisplayManager.isEnabled {
+            Section {
+                Text("betterdisplay.enable_hint".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func displayInfoSections(for display: BetterDisplayInfo) -> some View {
+        Section(display.name) {
+            if let productName = display.productName {
+                LabeledContent("display.info.model".localized, value: productName)
+            }
+        }
+
+        Section("display.info".localized) {
+            if let displayID = display.displayID {
+                LabeledContent("display.info.display_id".localized, value: displayID)
+            }
+            if let uuid = display.UUID {
+                LabeledContent("display.info.uuid".localized, value: uuid)
+            }
+            if let serial = display.serial {
+                LabeledContent("display.info.serial".localized, value: serial)
+            }
+            if let model = display.model {
+                LabeledContent("display.info.model".localized, value: model)
+            }
+            if let vendor = display.vendor {
+                LabeledContent("display.info.vendor".localized, value: vendor)
+            }
+            if let alphanumericSerial = display.alphanumericSerial, !alphanumericSerial.isEmpty {
+                LabeledContent("display.info.alphanumeric_serial".localized, value: alphanumericSerial)
+            }
+            if let year = display.yearOfManufacture, let week = display.weekOfManufacture {
+                LabeledContent("display.info.manufacture_date".localized, value: "\(year) / \(week)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func displayBrightnessTestSection(for display: BetterDisplayInfo) -> some View {
+        Section("display.brightness_test".localized) {
+            LabeledContent("display.brightness_test.get_current".localized) {
+                HStack {
+                    Button("display.brightness_test.get_button".localized) {
+                        fetchCurrentBrightness(for: display)
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isTestingBrightness || display.UUID == nil)
+
+                    if isTestingBrightness {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if let brightness = currentBrightness {
+                        Text("\(Int(brightness * 100))%")
+                            .font(.system(.title3, design: .monospaced))
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
+
+            LabeledContent("display.brightness_test.set_target".localized) {
+                Text("\(Int(testBrightness * 100))%")
+                    .monospacedDigit()
+            }
+
+            Slider(value: $testBrightness, in: 0...1)
+
+            Button("display.brightness_test.set_button".localized) {
+                setTestBrightness(for: display)
+            }
+            .buttonStyle(.glassProminent)
+            .disabled(isTestingBrightness || display.UUID == nil)
+
+            if !testMessage.isEmpty {
+                Text(testMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("display.brightness_test.hint".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - General
+
+    private var generalContent: some View {
+        Form {
+            Section("settings.macafk_settings".localized) {
+                Toggle("settings.launch_at_login".localized, isOn: $appModel.launchAtLogin)
+                    .help("settings.launch_at_login.help".localized)
+            }
+
+            Section("agent.auto_lock.title".localized) {
+                Toggle("agent.auto_lock.enabled".localized, isOn: $appModel.agentAutoLockEnabled)
+                    .help("agent.auto_lock.help".localized)
+
+                LabeledContent("agent.hooks.status".localized) {
+                    Text(appModel.agentHookStatusMessage)
+                        .foregroundStyle(appModel.agentHookInstallSummary.hasAnyInstalled ? .green : .secondary)
+                }
+
+                if appModel.activeAgentSessionCount > 0 {
+                    LabeledContent("agent.auto_lock.active_agents".localized) {
+                        Text("\(appModel.activeAgentSessionCount)")
+                            .monospacedDigit()
+                    }
+                }
+
+                if appModel.agentAutoLockEndDate != nil {
+                    LabeledContent("agent.auto_lock.countdown".localized) {
+                        Text(appModel.getAgentAutoLockRemainingDisplay())
+                            .monospacedDigit()
+                    }
+                }
+
+                HStack {
+                    Button("agent.hooks.install".localized) {
+                        appModel.installAgentHooks()
+                    }
+                    .buttonStyle(.glassProminent)
+
+                    Button("agent.hooks.uninstall".localized) {
+                        appModel.uninstallAgentHooks()
+                    }
+                    .buttonStyle(.glass)
+
+                    Button("agent.hooks.refresh".localized) {
+                        appModel.refreshAgentHookStatus()
+                    }
+                    .buttonStyle(.glass)
+                }
+
+                Text("agent.auto_lock.setup_note".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("settings.debug".localized) {
+                Toggle("debug.skip_permission_prompts".localized, isOn: $appModel.skipPermissionPrompts)
+                    .help("debug.skip_permission_prompts.help".localized)
+
+                Text("debug.skip_permission_prompts.note".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Language
+
+    private var languageContent: some View {
+        Form {
+            Section {
+                Text("menu.language.restart_required".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("menu.language".localized) {
+                Picker("menu.language".localized, selection: Binding(
+                    get: { languageManager.currentLanguage },
+                    set: { language in
+                        if languageManager.currentLanguage != language {
+                            languageManager.setLanguage(language)
+                            showRestartAlert = true
+                        }
+                    }
+                )) {
+                    ForEach(AppLanguage.allCases, id: \.self) { language in
+                        Text(language.localizedDisplayName).tag(language)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Update
+
+    private var updateContent: some View {
+        Form {
+            Section {
+                LabeledContent("update.current_version".localized) {
+                    Text(getCurrentVersion())
+                        .font(.system(.body, design: .monospaced))
+                }
+                updateStatusView
+            }
+
+            Section {
+                Button("update.check_now".localized) {
+                    updateManager.checkForUpdates(silent: false)
+                }
+                .buttonStyle(.glass)
+                .disabled(isCheckingUpdate)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
+    }
+
     @ViewBuilder
     private var updateStatusView: some View {
         switch updateManager.updateStatus {
         case .checking:
             HStack {
                 ProgressView()
-                    .scaleEffect(0.8)
                     .controlSize(.small)
                 Text("update.checking".localized)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 4)
-            
         case .upToDate:
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                Text("update.up_to_date".localized)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 4)
-            
+            Label("update.up_to_date".localized, systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
         case .available(let release):
-            HStack {
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundColor(.blue)
-                Text("update.new_version_available".localized + ": \(release.tagName)")
-                    .font(.subheadline)
-                    .foregroundColor(.blue)
-            }
-            .padding(.vertical, 4)
-            
+            Label(
+                "update.new_version_available".localized + ": \(release.tagName)",
+                systemImage: "arrow.down.circle.fill"
+            )
+            .foregroundStyle(.blue)
         case .error(let message):
-            HStack(alignment: .top) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-                Text(message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 4)
-            
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.caption)
         default:
             EmptyView()
         }
     }
-    
-    // MARK: - Bottom Bar
-    
-    private var bottomBar: some View {
-        HStack {
-            if betterDisplayManager.isEnabled {
-                Button {
-                    betterDisplayManager.refreshDisplays()
-                    appModel.brightnessControl.updateDisplayMapping()
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text("betterdisplay.refresh_displays".localized)
+
+    // MARK: - Environment Check
+
+    private var environmentCheckDialog: some View {
+        NavigationStack {
+            Group {
+                if isCheckingEnvironment {
+                    ProgressView("betterdisplay.environment_check.checking".localized)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Form {
+                        checkResultRow(
+                            icon: checkResults.installed ? "checkmark.circle.fill" : "xmark.circle.fill",
+                            color: checkResults.installed ? .green : .red,
+                            title: "betterdisplay.environment_check.install".localized,
+                            status: checkResults.installed
+                                ? "betterdisplay.environment_check.installed".localized
+                                : "betterdisplay.environment_check.not_installed_status".localized,
+                            action: checkResults.installed ? nil : {
+                                if let url = URL(string: "https://github.com/waydabber/BetterDisplay") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            },
+                            actionTitle: "betterdisplay.environment_check.download".localized
+                        )
+
+                        checkResultRow(
+                            icon: checkResults.running ? "checkmark.circle.fill" : "xmark.circle.fill",
+                            color: checkResults.running ? .green : .red,
+                            title: "betterdisplay.environment_check.running".localized,
+                            status: checkResults.running
+                                ? "betterdisplay.running".localized
+                                : "betterdisplay.not_running".localized,
+                            action: !checkResults.running && checkResults.installed ? {
+                                if let url = URL(string: "file:///Applications/BetterDisplay.app") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } : nil,
+                            actionTitle: "betterdisplay.environment_check.launch".localized
+                        )
+
+                        checkResultRow(
+                            icon: checkResults.connected ? "checkmark.circle.fill" : "xmark.circle.fill",
+                            color: checkResults.connected ? .green : .red,
+                            title: "betterdisplay.environment_check.connection".localized,
+                            status: checkResults.connected
+                                ? "betterdisplay.connection_success".localized
+                                : "betterdisplay.connection_failed".localized,
+                            action: !checkResults.connected && checkResults.running ? {
+                                if let url = URL(string: "https://github.com/waydabber/BetterDisplay/wiki/Integration-features,-CLI") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            } : nil,
+                            actionTitle: "betterdisplay.environment_check.guide".localized
+                        )
+
+                        if !checkResults.connected && checkResults.running {
+                            Section {
+                                VStack(alignment: .leading) {
+                                    Text("betterdisplay.environment_check.failure_title".localized)
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("betterdisplay.environment_check.failure_reason_1".localized)
+                                        .font(.caption)
+                                    Text("betterdisplay.environment_check.failure_reason_2".localized)
+                                        .font(.caption)
+                                }
+                            }
+                        }
+                    }
+                    .formStyle(.grouped)
+                }
+            }
+            .navigationTitle("betterdisplay.environment_check.title".localized)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("betterdisplay.environment_check.recheck".localized) {
+                        performEnvironmentCheck()
                     }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("button.done".localized) {
+                        showEnvironmentCheck = false
+                    }
+                }
             }
-            
-            Spacer()
-            
-            Button("button.done".localized) {
-                dismiss()
-            }
-            .buttonStyle(.borderedProminent)
         }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
+        .frame(minWidth: 480, minHeight: 360)
+        .presentationSizing(.form)
     }
-    
-    // MARK: - Helper Methods
-    
+
+    private func checkResultRow(
+        icon: String,
+        color: Color,
+        title: String,
+        status: String,
+        action: (() -> Void)?,
+        actionTitle: String
+    ) -> some View {
+        Section {
+            HStack {
+                Image(systemName: icon)
+                    .foregroundStyle(color)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading) {
+                    Text(title)
+                        .font(.subheadline.weight(.medium))
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                Spacer()
+                if let action {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.glass)
+                        .controlSize(.small)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func closePreferencesWindow() {
+        NSApp.keyWindow?.close()
+    }
+
+    private func configurePreferencesWindowChrome() {
+        DispatchQueue.main.async {
+            guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.canBecomeKey }) else { return }
+
+            let minimumSize = NSSize(width: 760, height: 540)
+            let idealSize = NSSize(width: 860, height: 620)
+            let maximumSize = NSSize(width: 980, height: 720)
+            let currentSize = window.contentLayoutRect.size
+
+            window.title = "settings.window_title".localized
+            window.titlebarSeparatorStyle = .none
+            window.contentMinSize = minimumSize
+            window.contentMaxSize = maximumSize
+
+            if currentSize.width < minimumSize.width
+                || currentSize.height < minimumSize.height
+                || currentSize.width > maximumSize.width
+                || currentSize.height > maximumSize.height {
+                window.setContentSize(idealSize)
+                window.center()
+            }
+        }
+    }
+
     private func getCurrentVersion() -> String {
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             return "v\(version)"
         }
         return "v1.0.0"
     }
-    
+
     private var isCheckingUpdate: Bool {
         if case .checking = updateManager.updateStatus {
             return true
         }
         return false
     }
-    
-    // MARK: - Environment Check
-    
-    /// 执行环境检测
+
     private func performEnvironmentCheck() {
         isCheckingEnvironment = true
         showEnvironmentCheck = true
-        
-        // 检测安装状态
+
         betterDisplayManager.checkInstallation()
         checkResults.installed = betterDisplayManager.isInstalled
-        
-        // 检测运行状态
+
         betterDisplayManager.checkIfRunning()
         checkResults.running = betterDisplayManager.isRunning
-        
-        // 检测连接状态
+
         if checkResults.installed && checkResults.running {
             betterDisplayManager.testConnection { success in
                 DispatchQueue.main.async {
@@ -1011,155 +850,47 @@ struct NewPreferencesView: View {
             isCheckingEnvironment = false
         }
     }
-    
-    /// 环境检测弹窗
-    private var environmentCheckDialog: some View {
-        VStack(spacing: 20) {
-            // 标题
-            HStack {
-                Image(systemName: "checkmark.shield.fill")
-                    .font(.title)
-                    .foregroundColor(.accentColor)
-                Text("BetterDisplay 环境检测")
-                    .font(.title2)
-                    .fontWeight(.bold)
-            }
-            .padding(.top)
-            
-            Divider()
-            
-            if isCheckingEnvironment {
-                ProgressView("正在检测...")
-                    .padding()
-            } else {
-                VStack(alignment: .leading, spacing: 16) {
-                    // 1. 安装检测
-                    checkResultRow(
-                        icon: checkResults.installed ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        color: checkResults.installed ? .green : .red,
-                        title: "1. BetterDisplay 安装",
-                        status: checkResults.installed ? "已安装" : "未安装",
-                        action: checkResults.installed ? nil : {
-                            if let url = URL(string: "https://github.com/waydabber/BetterDisplay") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        },
-                        actionTitle: "下载安装"
-                    )
-                    
-                    // 2. 运行检测
-                    checkResultRow(
-                        icon: checkResults.running ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        color: checkResults.running ? .green : .red,
-                        title: "2. BetterDisplay 运行",
-                        status: checkResults.running ? "运行中" : "未运行",
-                        action: !checkResults.running && checkResults.installed ? {
-                            if let url = URL(string: "file:///Applications/BetterDisplay.app") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        } : nil,
-                        actionTitle: "启动应用"
-                    )
-                    
-                    // 3. 连接检测
-                    checkResultRow(
-                        icon: checkResults.connected ? "checkmark.circle.fill" : "xmark.circle.fill",
-                        color: checkResults.connected ? .green : .red,
-                        title: "3. Integration API 连接",
-                        status: checkResults.connected ? "连接成功" : "连接失败",
-                        action: !checkResults.connected && checkResults.running ? {
-                            if let url = URL(string: "https://github.com/waydabber/BetterDisplay/wiki/Integration-features,-CLI") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        } : nil,
-                        actionTitle: "查看设置指南"
-                    )
-                }
-                .padding()
-                
-                // 提示信息
-                if !checkResults.connected && checkResults.running {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundColor(.blue)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("连接失败可能的原因：")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Text("• BetterDisplay 中未启用 Integration features")
-                                    .font(.caption)
-                                Text("• 需要重启 BetterDisplay 使设置生效")
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color.blue.opacity(0.1))
-                    .cornerRadius(8)
-                    .padding(.horizontal)
-                }
-            }
-            
-            Divider()
-            
-            // 底部按钮
-            HStack {
-                Button("重新检测") {
-                    performEnvironmentCheck()
-                }
-                .buttonStyle(.bordered)
-                
-                Spacer()
-                
-                Button("完成") {
-                    showEnvironmentCheck = false
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding()
+
+    private func fetchCurrentBrightness(for display: BetterDisplayInfo) {
+        guard let uuid = display.UUID else {
+            testMessage = "display.brightness_test.no_uuid".localized
+            return
         }
-        .frame(width: 500)
-        .padding()
+
+        isTestingBrightness = true
+        testMessage = "display.brightness_test.fetching".localized
+
+        betterDisplayManager.cacheBrightnessByUUID(uuid: uuid) { brightness in
+            DispatchQueue.main.async {
+                isTestingBrightness = false
+                if let brightness {
+                    currentBrightness = brightness
+                    testMessage = String(format: "display.brightness_test.current".localized, Int(brightness * 100))
+                } else {
+                    testMessage = "display.brightness_test.fetch_failed".localized
+                }
+            }
+        }
     }
-    
-    /// 检测结果行
-    private func checkResultRow(
-        icon: String,
-        color: Color,
-        title: String,
-        status: String,
-        action: (() -> Void)?,
-        actionTitle: String
-    ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(color)
-                .frame(width: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(status)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            if let action = action {
-                Button(actionTitle) {
-                    action()
+
+    private func setTestBrightness(for display: BetterDisplayInfo) {
+        guard let uuid = display.UUID else {
+            testMessage = "display.brightness_test.no_uuid".localized
+            return
+        }
+
+        isTestingBrightness = true
+        testMessage = "display.brightness_test.setting".localized
+
+        betterDisplayManager.setBrightnessByUUID(uuid: uuid, brightness: testBrightness) { success in
+            DispatchQueue.main.async {
+                isTestingBrightness = false
+                if success {
+                    testMessage = String(format: "display.brightness_test.set_success".localized, Int(testBrightness * 100))
+                } else {
+                    testMessage = "display.brightness_test.set_failed".localized
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .cornerRadius(8)
     }
 }

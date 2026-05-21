@@ -14,6 +14,7 @@
 - 构建所有版本（Pro/Lite × ARM64/x86_64）
 - 运行单元测试
 - 上传构建产物（保留 7 天）
+- CI 构建不使用 Apple Developer ID 签名
 
 ### 2. `release.yml` - 自动发布
 **触发条件**：
@@ -21,10 +22,11 @@
 - 手动触发（可指定版本号）
 
 **功能**：
-- 构建所有 6 个版本：
-  - Pro: ARM64、x86_64、Universal
-  - Lite: ARM64、x86_64、Universal
+- 构建 Pro 版本：
+  - ARM64、x86_64、Universal
 - 创建 DMG 安装包
+- 如果配置了 Apple Developer ID secrets，使用 Developer ID 签名 `.app` 和 `.dmg`
+- 如果同时配置 Apple 公证 secrets，提交 notarization 并 staple DMG
 - 生成 SHA-256 校验和
 - 自动创建 GitHub Release
 - 上传所有构建产物
@@ -79,28 +81,53 @@ git push origin v1.2.0
 ### CI 构建（build.yml）
 - 保留时间：7 天
 - 位置：Actions 页面 → 具体运行 → Artifacts
+- `.app` artifact 不做 Apple Developer ID 正式签名
 
 ### Release 构建（release.yml）
 - 保留时间：90 天
 - 位置：
   - GitHub Release 页面（公开下载）
   - Actions Artifacts（备份）
+- 只有 Release 工作流会尝试使用 Apple Developer ID secrets 签名和公证
 
 ## 🔐 安全说明
 
 ### 代码签名
 
-当前配置使用 ad-hoc 签名（无签名证书）：
-- `CODE_SIGN_IDENTITY="-"`
-- `CODE_SIGNING_REQUIRED=NO`
+当前只有 `release.yml` 会使用 Apple Developer ID secrets。`build.yml` 的普通 CI 构建会保持未正式签名，避免把非发布产物当成可分发版本。
 
-**生产环境建议**：
-1. 添加 Apple Developer 证书
-2. 配置 GitHub Secrets：
-   - `APPLE_CERTIFICATE_BASE64`
-   - `APPLE_CERTIFICATE_PASSWORD`
-   - `KEYCHAIN_PASSWORD`
-3. 更新工作流以使用真实证书
+Release 工作流支持两种模式：
+
+1. 未配置 Apple Developer ID secrets 时：使用 ad-hoc 签名，保证 entitlements 尽量生效，但不会通过 Gatekeeper 正式校验。
+2. 配置 Apple Developer ID secrets 后：导入证书到临时 keychain，使用 Developer ID 签名 `.app` 和 `.dmg`。如果同时配置 notary secrets，会提交 Apple 公证并 staple DMG。
+
+需要配置的 GitHub Actions Secrets：
+
+- `MACOS_CERTIFICATE_BASE64`：Developer ID Application `.p12` 证书的 base64 内容
+- `MACOS_CERTIFICATE_PASSWORD`：导出 `.p12` 时设置的密码
+- `MACOS_KEYCHAIN_PASSWORD`：CI 临时 keychain 密码，可自定义一个随机长密码
+- `MACOS_SIGNING_IDENTITY`：证书身份，例如 `Developer ID Application: Your Name (TEAMID)`
+
+可选公证 Secrets：
+
+- `APPLE_NOTARY_APPLE_ID`：Apple Developer 账号邮箱
+- `APPLE_NOTARY_PASSWORD`：App-specific password 或 notarytool 可用密码
+- `APPLE_NOTARY_TEAM_ID`：Apple Developer Team ID
+
+建议 Release 发布时同时配置签名和公证 secrets。只配置签名 secrets 时，Release 会带你的 Developer ID 签名，但没有 Apple 公证票据，用户下载后仍可能遇到 Gatekeeper 提示。
+
+生成证书 secret 示例：
+
+```bash
+base64 -i DeveloperIDApplication.p12 | pbcopy
+```
+
+本地验证签名示例：
+
+```bash
+codesign -dvvv --entitlements :- /Applications/MacAfk\ Pro.app
+spctl -a -vv /Applications/MacAfk\ Pro.app
+```
 
 ### Secrets 配置
 
@@ -161,4 +188,3 @@ VERSION=v1.2.0 ./build.sh
 1. 查看 Actions 运行日志
 2. 搜索类似的 GitHub Issues
 3. 创建新 Issue 并附上错误信息
-
