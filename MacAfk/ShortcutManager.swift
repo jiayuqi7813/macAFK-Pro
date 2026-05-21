@@ -89,6 +89,9 @@ class ShortcutManager: ObservableObject {
     private var localEventMonitor: Any?
     private let userDefaultsKey = "customShortcuts"
 
+    /// 全局快捷键监听是否已建立（无辅助功能权限时为 false）
+    private(set) var isGlobalMonitorActive = false
+
     @Published var shortcuts: [ShortcutAction: ShortcutConfig] = [
         .toggleJiggle: ShortcutConfig(
             action: .toggleJiggle,
@@ -120,17 +123,20 @@ class ShortcutManager: ObservableObject {
         loadCustomShortcuts()
     }
 
-    func startListening() {
+    @discardableResult
+    func startListening() -> Bool {
         stopListening()
 
-        let hasPermission = AXIsProcessTrusted()
+        let hasPermission = AccessibilityPermissionManager.shared.checkAccessibilityPermission()
 
-        if !hasPermission {
+        if hasPermission {
+            eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                self?.handleEvent(event)
+            }
+            isGlobalMonitorActive = eventMonitor != nil
+        } else {
+            isGlobalMonitorActive = false
             debugLog("Accessibility permission missing for global shortcuts", logger: AppLog.shortcuts)
-        }
-
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleEvent(event)
         }
 
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -138,7 +144,11 @@ class ShortcutManager: ObservableObject {
             return event
         }
 
-        debugLog("Shortcut listening started", logger: AppLog.shortcuts)
+        debugLog(
+            "Shortcut listening started (global: \(self.isGlobalMonitorActive))",
+            logger: AppLog.shortcuts
+        )
+        return isGlobalMonitorActive
     }
 
     func stopListening() {
@@ -150,7 +160,28 @@ class ShortcutManager: ObservableObject {
             NSEvent.removeMonitor(monitor)
             localEventMonitor = nil
         }
+        isGlobalMonitorActive = false
         debugLog("Shortcut listening stopped", logger: AppLog.shortcuts)
+    }
+
+    /// 辅助功能权限就绪后重建全局监听
+    func restartGlobalMonitorIfNeeded() {
+        guard AccessibilityPermissionManager.shared.checkAccessibilityPermission() else { return }
+        guard !isGlobalMonitorActive else { return }
+
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handleEvent(event)
+        }
+        isGlobalMonitorActive = eventMonitor != nil
+        debugLog(
+            "Global shortcut monitor restarted (active: \(self.isGlobalMonitorActive))",
+            logger: AppLog.shortcuts
+        )
     }
 
     private func handleEvent(_ event: NSEvent) {

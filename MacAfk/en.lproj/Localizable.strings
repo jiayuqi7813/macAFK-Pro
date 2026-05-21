@@ -122,8 +122,37 @@
 
 // Accessibility Permission
 "permission.accessibility.title" = "Accessibility Permission Required";
-"permission.accessibility.message" = "MacAfk Pro needs Accessibility permission to monitor global shortcuts and simulate mouse movements.\n\nPlease grant permission in System Settings and restart the app.";
+"permission.accessibility.message" = "MacAfk Pro needs Accessibility permission to monitor global shortcuts and simulate mouse movements.\n\nEnable permission for the running app below (takes effect automatically, no restart needed):\n%@";
 "permission.open_settings" = "Open System Settings";
+"permission.check.title" = "Accessibility Permission";
+"permission.check.status" = "Permission Status";
+"permission.check.button" = "Check Permission";
+"permission.check.recheck" = "Recheck";
+"permission.check.granted" = "Granted";
+"permission.check.missing" = "Not Granted";
+"permission.check.granted.detail" = "Global shortcuts and mouse simulation are available.";
+"permission.check.missing.detail" = "Accessibility permission is required for global shortcuts and anti-sleep features.";
+"permission.check.details" = "Details";
+"permission.check.app_path" = "Running App Path";
+"permission.check.install_location" = "Update Install Location";
+"permission.check.global_shortcuts" = "Global Shortcuts";
+"permission.check.active" = "Active";
+"permission.check.inactive" = "Inactive";
+"permission.check.steps" = "How to Grant";
+"permission.check.step.open_settings" = "Click the button below to open System Settings";
+"permission.check.step.enable_app" = "Enable MacAfk Pro in the Accessibility list";
+"permission.check.step.return" = "Return to the app — permission takes effect automatically";
+"permission.check.path_note" = "If multiple MacAfk Pro entries appear, enable the one matching the running app path above.";
+"permission.check.settings_note" = "Updates replace the app in a fixed install location to preserve permissions. Installing to Applications is recommended.";
+"permission.check.later" = "Later";
+
+"update.installing.in_place" = "Installing update in place…";
+"update.installing.restart_hint" = "The app will quit and replace itself, then relaunch automatically. The install location stays the same, preserving Accessibility permission.";
+"update.error.mount" = "Failed to mount installer";
+"update.error.app_not_found" = "App not found in installer";
+"update.error.staging" = "Failed to stage update files";
+"update.error.target_not_writable" = "Cannot write to install directory: %@";
+"update.error.install_script" = "Failed to launch install script";
 
 // Settings Tabs
 "settings.displays" = "Display Settings";

@@ -122,8 +122,37 @@
 
 // Accessibility Permission
 "permission.accessibility.title" = "需要辅助功能权限";
-"permission.accessibility.message" = "MacAfk Pro 需要辅助功能权限来监听全局快捷键和模拟鼠标移动。\n\n请在系统设置中授予权限后重启应用。";
+"permission.accessibility.message" = "MacAfk Pro 需要辅助功能权限来监听全局快捷键和模拟鼠标移动。\n\n请为当前运行的应用开启权限（授权后自动生效，无需重启）：\n%@";
 "permission.open_settings" = "打开系统设置";
+"permission.check.title" = "辅助功能权限";
+"permission.check.status" = "权限状态";
+"permission.check.button" = "检查权限";
+"permission.check.recheck" = "重新检查";
+"permission.check.granted" = "已授权";
+"permission.check.missing" = "未授权";
+"permission.check.granted.detail" = "全局快捷键和鼠标模拟已可用。";
+"permission.check.missing.detail" = "需要辅助功能权限才能使用全局快捷键和防休眠功能。";
+"permission.check.details" = "详细信息";
+"permission.check.app_path" = "当前运行路径";
+"permission.check.install_location" = "更新安装位置";
+"permission.check.global_shortcuts" = "全局快捷键";
+"permission.check.active" = "已启用";
+"permission.check.inactive" = "未启用";
+"permission.check.steps" = "授权步骤";
+"permission.check.step.open_settings" = "点击下方按钮打开系统设置";
+"permission.check.step.enable_app" = "在辅助功能列表中开启 MacAfk Pro";
+"permission.check.step.return" = "返回应用，权限会自动生效";
+"permission.check.path_note" = "若列表中有多个 MacAfk Pro，请确保开启的是上方「当前运行路径」对应的条目。";
+"permission.check.settings_note" = "更新会在固定安装位置原地替换，避免权限丢失。建议将应用安装在「应用程序」文件夹。";
+"permission.check.later" = "稍后";
+
+"update.installing.in_place" = "正在原地安装更新…";
+"update.installing.restart_hint" = "应用即将自动退出并完成替换，完成后会自动重新打开。安装位置不变，辅助功能权限将保留。";
+"update.error.mount" = "挂载安装包失败";
+"update.error.app_not_found" = "安装包中未找到应用";
+"update.error.staging" = "准备更新文件失败";
+"update.error.target_not_writable" = "无法写入安装目录：%@";
+"update.error.install_script" = "启动安装脚本失败";
 
 // Settings Tabs
 "settings.displays" = "显示设置";

@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import os
 
 /// GitHub Release 信息
 struct GitHubRelease: Codable, Equatable {
@@ -209,17 +210,19 @@ class UpdateManager: ObservableObject {
     fileprivate func installDMG(at localURL: URL) {
         updateStatus = .installing
 
-        DispatchQueue.main.async {
-            NSWorkspace.shared.activateFileViewerSelecting([localURL])
-
-            let alert = NSAlert()
-            alert.messageText = "update.install.manual.title".localized
-            alert.informativeText = "update.install.manual.message".localized
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "button.done".localized)
-            alert.runModal()
-
-            self.updateStatus = .idle
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try AppUpdateInstaller.installFromDMG(at: localURL)
+                DispatchQueue.main.async {
+                    debugLog("Update staged, terminating for in-place install", logger: AppLog.updates)
+                    NSApp.terminate(nil)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.updateStatus = .error(error.localizedDescription)
+                    AppLog.updates.error("In-place update failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
         }
     }
 }
@@ -233,7 +236,7 @@ class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         let fileManager = FileManager.default
-        let downloadsURL = fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        let downloadsURL = fileManager.temporaryDirectory
         let fileName = downloadTask.response?.suggestedFilename ?? "MacAfk-Pro.dmg"
         let destinationURL = downloadsURL.appendingPathComponent(fileName)
 

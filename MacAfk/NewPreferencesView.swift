@@ -49,6 +49,7 @@ struct NewPreferencesView: View {
     @State private var isTestingBrightness = false
 
     @State private var showEnvironmentCheck = false
+    @State private var showPermissionCheck = false
     @State private var isCheckingEnvironment = false
     @State private var checkResults: (installed: Bool, running: Bool, connected: Bool) = (false, false, false)
 
@@ -138,6 +139,18 @@ struct NewPreferencesView: View {
         }
         .sheet(isPresented: $showEnvironmentCheck) {
             environmentCheckDialog
+        }
+        .sheet(isPresented: $showPermissionCheck) {
+            PermissionCheckView(
+                shortcutManager: appModel.shortcutManager,
+                onGranted: {
+                    showPermissionCheck = false
+                },
+                onDismiss: {
+                    showPermissionCheck = false
+                }
+            )
+            .presentationSizing(.form)
         }
         .onChange(of: updateManager.updateStatus) { _, newStatus in
             if case .available(let release) = newStatus {
@@ -564,6 +577,34 @@ struct NewPreferencesView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("permission.check.title".localized) {
+                LabeledContent("permission.check.status".localized) {
+                    Label(
+                        permissionStatusText,
+                        systemImage: permissionStatusIcon
+                    )
+                    .foregroundStyle(permissionStatusColor)
+                    .font(.subheadline)
+                }
+
+                LabeledContent("permission.check.install_location".localized) {
+                    Text(AppUpdateInstaller.preferredInstallURL().path)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                Button("permission.check.button".localized) {
+                    showPermissionCheck = true
+                }
+                .buttonStyle(.glassProminent)
+
+                Text("permission.check.settings_note".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("settings.debug".localized) {
                 Toggle("debug.skip_permission_prompts".localized, isOn: $appModel.skipPermissionPrompts)
                     .help("debug.skip_permission_prompts.help".localized)
@@ -659,6 +700,13 @@ struct NewPreferencesView: View {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
                 .font(.caption)
+        case .installing:
+            HStack {
+                ProgressView()
+                    .controlSize(.small)
+                Text("update.installing.in_place".localized)
+                    .foregroundStyle(.secondary)
+            }
         default:
             EmptyView()
         }
@@ -826,6 +874,24 @@ struct NewPreferencesView: View {
             return true
         }
         return false
+    }
+
+    private var permissionStatusText: String {
+        AccessibilityPermissionManager.shared.checkAccessibilityPermission()
+            ? "permission.check.granted".localized
+            : "permission.check.missing".localized
+    }
+
+    private var permissionStatusIcon: String {
+        AccessibilityPermissionManager.shared.checkAccessibilityPermission()
+            ? "checkmark.circle.fill"
+            : "exclamationmark.triangle.fill"
+    }
+
+    private var permissionStatusColor: Color {
+        AccessibilityPermissionManager.shared.checkAccessibilityPermission()
+            ? .green
+            : .orange
     }
 
     private func performEnvironmentCheck() {

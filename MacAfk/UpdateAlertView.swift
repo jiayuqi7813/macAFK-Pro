@@ -78,6 +78,20 @@ struct UpdateAlertView: View {
                     .font(.caption)
             }
         }
+
+        if case .installing = updateManager.updateStatus {
+            Section("update.installing".localized) {
+                HStack {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("update.installing.in_place".localized)
+                        .foregroundStyle(.secondary)
+                }
+                Text("update.installing.restart_hint".localized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder
@@ -89,6 +103,9 @@ struct UpdateAlertView: View {
                 Text("update.cancel_download".localized)
             }
             .tint(.red)
+        } else if case .installing = updateManager.updateStatus {
+            ProgressView()
+                .controlSize(.small)
         } else if case .error = updateManager.updateStatus {
             Button {
                 updateManager.downloadAndInstall(release: release)

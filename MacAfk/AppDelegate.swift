@@ -14,7 +14,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissionManager = AccessibilityPermissionManager.shared
     private var mainWindow: NSWindow?
     private var preferencesWindow: NSWindow?
+    private var permissionWindow: NSWindow?
     private var permissionMonitorTimer: Timer?
+    private var hasPresentedPermissionCheck = false
+    private var permissionWindowIsLaunchGate = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         terminateIfAnotherInstanceIsRunning()
@@ -23,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
+        AppUpdateInstaller.recordCurrentInstallLocationIfNeeded()
         handleAccessibilityPermissionOnLaunch()
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -60,6 +64,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleShowPreferencesRequested),
             name: .showPreferencesRequested,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleApplicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAccessibilityPermissionGranted),
+            name: .accessibilityPermissionGranted,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleShowPermissionCheckRequested),
+            name: .showPermissionCheckRequested,
             object: nil
         )
     }
@@ -303,28 +328,119 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             debugLog("Skipping launch accessibility guide (debug mode)", logger: AppLog.appDelegate)
             return
         }
-        guard !permissionManager.checkAccessibilityPermission() else { return }
+
+        if permissionManager.checkAccessibilityPermission() {
+            appModel.shortcutManager.restartGlobalMonitorIfNeeded()
+            return
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
-            guard !self.permissionManager.checkAccessibilityPermission() else { return }
+            guard !self.permissionManager.checkAccessibilityPermission() else {
+                self.reconcileAccessibilityPermission()
+                return
+            }
 
-            debugLog("Accessibility permission missing, showing guide", logger: AppLog.appDelegate)
-            self.permissionManager.showAccessibilityPermissionGuideIfNeeded()
+            debugLog("Accessibility permission missing, showing permission check", logger: AppLog.appDelegate)
+            self.showPermissionCheckWindow(isLaunchGate: true)
+            self.startAccessibilityPermissionMonitoring()
+        }
+    }
 
-            self.permissionMonitorTimer?.invalidate()
-            self.permissionMonitorTimer = self.permissionManager.startMonitoringPermission { [weak self] granted in
-                guard let self, granted else { return }
+    private func startAccessibilityPermissionMonitoring() {
+        permissionMonitorTimer?.invalidate()
+        permissionMonitorTimer = permissionManager.startMonitoringPermission { [weak self] granted in
+            guard let self, granted else { return }
+            self.reconcileAccessibilityPermission()
+        }
+    }
 
-                debugLog("Accessibility granted, restarting shortcut listener", logger: AppLog.appDelegate)
-                DispatchQueue.main.async {
-                    self.permissionMonitorTimer?.invalidate()
-                    self.permissionMonitorTimer = nil
-                    self.appModel.shortcutManager.stopListening()
-                    self.appModel.shortcutManager.startListening()
-                }
+    private func reconcileAccessibilityPermission() {
+        guard permissionManager.checkAccessibilityPermission() else { return }
+
+        debugLog("Accessibility granted, restarting shortcut listener", logger: AppLog.appDelegate)
+        permissionMonitorTimer?.invalidate()
+        permissionMonitorTimer = nil
+        permissionManager.stopMonitoringPermission()
+        appModel.shortcutManager.restartGlobalMonitorIfNeeded()
+    }
+
+    @objc private func handleApplicationDidBecomeActive(_ notification: Notification) {
+        reconcileAccessibilityPermission()
+    }
+
+    @objc private func handleShowPermissionCheckRequested(_ notification: Notification) {
+        showPermissionCheckWindow(isLaunchGate: false)
+    }
+
+    private func showPermissionCheckWindow(isLaunchGate: Bool) {
+        guard !permissionManager.skipPermissionPrompts else { return }
+        guard !permissionManager.checkAccessibilityPermission() else { return }
+        if isLaunchGate && hasPresentedPermissionCheck { return }
+        if permissionWindow != nil { return }
+
+        hasPresentedPermissionCheck = true
+        permissionWindowIsLaunchGate = isLaunchGate
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        let contentView = PermissionCheckView(
+            shortcutManager: appModel.shortcutManager,
+            isLaunchGate: isLaunchGate,
+            onGranted: { [weak self] in
+                self?.reconcileAccessibilityPermission()
+                self?.closePermissionWindow()
+            },
+            onDismiss: { [weak self] in
+                self?.closePermissionWindow()
+            }
+        )
+
+        let hostingController = NSHostingController(rootView: contentView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = languageManager.localizedString(for: "permission.check.title")
+        configureStandardWindow(window)
+        window.setContentSize(NSSize(width: 560, height: 520))
+        window.center()
+        window.delegate = self
+
+        permissionWindow = window
+        window.makeKeyAndOrderFront(nil)
+        startAccessibilityPermissionMonitoring()
+    }
+
+    private func closePermissionWindow() {
+        permissionWindow?.close()
+    }
+
+    private func finishPermissionWindowFlow() {
+        let revealMainWindow = permissionWindowIsLaunchGate
+        permissionWindowIsLaunchGate = false
+        permissionWindow = nil
+
+        if revealMainWindow {
+            showMainWindow()
+            return
+        }
+
+        switchToAccessoryIfNoVisibleWindows()
+    }
+
+    private func switchToAccessoryIfNoVisibleWindows() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let visibleWindows = NSApp.windows.filter { window in
+                window.isVisible && window.canBecomeKey && !window.className.contains("StatusBar")
+            }
+
+            if visibleWindows.isEmpty {
+                NSApp.setActivationPolicy(.accessory)
             }
         }
+    }
+
+    @objc private func handleAccessibilityPermissionGranted(_ notification: Notification) {
+        reconcileAccessibilityPermission()
+        closePermissionWindow()
     }
 
     private func loadMenuBarIcon(isActive: Bool) -> NSImage? {
@@ -342,23 +458,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
-        guard window == mainWindow || window == preferencesWindow else { return }
+        guard window == mainWindow || window == preferencesWindow || window == permissionWindow else { return }
 
         if window == mainWindow {
             mainWindow = nil
         } else if window == preferencesWindow {
             preferencesWindow = nil
+        } else if window == permissionWindow {
+            finishPermissionWindowFlow()
+            return
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            let visibleWindows = NSApp.windows.filter { window in
-                window.isVisible && window.canBecomeKey && !window.className.contains("StatusBar")
-            }
-
-            if visibleWindows.isEmpty {
-                NSApp.setActivationPolicy(.accessory)
-                debugLog("All windows closed, running in background", logger: AppLog.appDelegate)
-            }
-        }
+        switchToAccessoryIfNoVisibleWindows()
     }
 }

@@ -7,20 +7,35 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-05-21
+
+### Added
+- 🔐 **辅助功能权限检查页面** - 启动时若无权限自动弹出，采用 Form 结构化引导
+- ⚙️ **设置页权限检查** - 常规设置中新增权限状态、安装路径与「检查权限」按钮
+- 📦 **原地自动升级** - 下载更新后在固定安装位置替换应用并自动重启，避免权限丢失
+- 🔄 **权限状态自动恢复** - 从系统设置返回后自动检测权限并重建全局快捷键监听
+
 ### Fixed
-- 🐛 **修复窗口关闭后 Dock 图标无法移除的问题**
-  - 移除 WindowGroup，改用程序化窗口管理
-  - 修复窗口关闭时 Dock 图标无法正确隐藏的 bug
-  - 解决屏幕中间出现透明不可见区域无法点击的问题
-  - 恢复主窗口（ContentView）和设置窗口（NewPreferencesView）的分离
-  - 优化窗口生命周期管理，确保窗口关闭后正确清理
+- 🐛 **修复已授权仍弹窗** - 解决 Debug 构建 debug dylib 与多路径安装导致的 TCC 误判
+- 🐛 **修复后台快捷键失效** - 无权限时 global monitor 未建立，授权后自动恢复
+- 🐛 **修复权限弹窗关闭后无主窗口** - 启动引导结束后自动打开主页面
 
 ### Changed
-- 🏗️ **重构窗口管理架构**
-  - 从 WindowGroup 改为程序化创建 NSWindow
-  - 主窗口和设置窗口独立管理，互不干扰
-  - 使用 NSWindowDelegate 精确控制窗口关闭事件
-  - 改进窗口关闭时的 Dock 图标隐藏逻辑
+- 🏗️ **升级流程改进** - 由手动拖 DMG 覆盖改为应用内自动安装
+- 🛠️ **Debug 构建** - 关闭 `ENABLE_DEBUG_DYLIB`，提升开发版权限识别稳定性
+
+## [1.0.5] - 2026-05-21
+
+### Added
+- 🤖 **AI Agent 任务监控** - 主窗口展示正在运行的 Agent、来源与任务名称
+- 🔒 **Agent 完成后自动锁屏** - 全部 Agent 空闲 5 分钟后自动停止抖动、恢复亮度并锁屏
+- ⏱️ **定时关闭** - 可设定时长后自动关闭防休眠并锁屏
+
+### Changed
+- 🎨 **界面重构** - 主窗口与设置窗口采用 Liquid Glass 风格布局
+
+### Fixed
+- 🐛 修复 Cursor 运行时误显示 Claude Code Agent 的问题
 
 ## [1.0.3] - 2025-11-25
 
@@ -110,8 +125,9 @@
 
 ---
 
-[Unreleased]: https://github.com/jiayuqi7813/macAFK/compare/v1.0.3...HEAD
-[1.0.3]: https://github.com/jiayuqi7813/macAFK/releases/tag/v1.0.3
-[1.0.2]: https://github.com/jiayuqi7813/macAFK/releases/tag/v1.0.2
-[1.0.0]: https://github.com/jiayuqi7813/macAFK/releases/tag/v1.0.0
-
+[Unreleased]: https://github.com/jiayuqi7813/macAFK-Pro/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/jiayuqi7813/macAFK-Pro/releases/tag/v1.0.6
+[1.0.5]: https://github.com/jiayuqi7813/macAFK-Pro/releases/tag/v1.0.5
+[1.0.3]: https://github.com/jiayuqi7813/macAFK-Pro/releases/tag/v1.0.3
+[1.0.2]: https://github.com/jiayuqi7813/macAFK-Pro/releases/tag/v1.0.2
+[1.0.0]: https://github.com/jiayuqi7813/macAFK-Pro/releases/tag/v1.0.0

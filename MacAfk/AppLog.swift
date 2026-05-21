@@ -14,6 +14,7 @@ enum AppLog {
     static let updates = Logger(subsystem: subsystem, category: "Updates")
     static let appDelegate = Logger(subsystem: subsystem, category: "AppDelegate")
     static let agentHooks = Logger(subsystem: subsystem, category: "AgentHooks")
+    static let installer = Logger(subsystem: subsystem, category: "Installer")
 }
 
 #if DEBUG

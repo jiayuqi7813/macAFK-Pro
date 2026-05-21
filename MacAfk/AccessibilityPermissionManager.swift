@@ -9,13 +9,18 @@ class AccessibilityPermissionManager {
 
     static let skipPermissionPromptsKey = "app.debug.skipPermissionPrompts"
 
-    private var hasShownGuideAlert = false
+    private var permissionMonitorTimer: Timer?
 
     private init() {}
 
     /// Debug 模式：跳过系统权限弹窗与自定义引导弹窗
     var skipPermissionPrompts: Bool {
         UserDefaults.standard.bool(forKey: Self.skipPermissionPromptsKey)
+    }
+
+    /// 当前运行实例的路径，用于引导用户授权正确的二进制
+    var runningAppPath: String {
+        Bundle.main.bundlePath
     }
 
     /// 静默检查，绝不触发系统权限弹窗
@@ -37,45 +42,41 @@ class AccessibilityPermissionManager {
         debugLog("Triggered system accessibility prompt", logger: AppLog.permissions)
     }
 
-    /// 启动时引导用户去系统设置，不触发系统权限弹窗，且每会话最多一次
-    func showAccessibilityPermissionGuideIfNeeded() {
-        guard !skipPermissionPrompts else {
-            debugLog("Skipping accessibility permission guide (debug mode)", logger: AppLog.permissions)
-            return
+    /// 打开系统设置并将当前实例注册到辅助功能列表
+    func openAccessibilitySettings() {
+        promptSystemAccessibilityPermission()
+
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
         }
+    }
+
+    /// 请求展示权限检查页面（由 AppDelegate 呈现）
+    func requestPermissionCheckPresentation() {
+        guard !skipPermissionPrompts else { return }
         guard !checkAccessibilityPermission() else { return }
-        guard !hasShownGuideAlert else { return }
-        hasShownGuideAlert = true
 
-        debugLog("Showing accessibility permission guide", logger: AppLog.permissions)
+        debugLog("Requesting permission check presentation", logger: AppLog.permissions)
+        NotificationCenter.default.post(name: .showPermissionCheckRequested, object: nil)
+    }
 
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = NSLocalizedString("permission.accessibility.title", comment: "")
-            alert.informativeText = NSLocalizedString("permission.accessibility.message", comment: "")
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: NSLocalizedString("permission.open_settings", comment: ""))
-            alert.addButton(withTitle: NSLocalizedString("button.cancel", comment: ""))
-
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-        }
+    /// 启动时引导：展示权限检查页面，不再使用 NSAlert
+    func showAccessibilityPermissionGuideIfNeeded() {
+        requestPermissionCheckPresentation()
     }
 
     /// 监控权限状态变化；授权成功后自动停止轮询
     @discardableResult
     func startMonitoringPermission(onChange: @escaping (Bool) -> Void) -> Timer? {
+        stopMonitoringPermission()
+
         var lastStatus = checkAccessibilityPermission()
         if lastStatus {
             onChange(true)
             return nil
         }
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] timer in
             guard let self = self else {
                 timer.invalidate()
                 return
@@ -88,9 +89,18 @@ class AccessibilityPermissionManager {
                 onChange(currentStatus)
                 if currentStatus {
                     timer.invalidate()
+                    self.permissionMonitorTimer = nil
+                    NotificationCenter.default.post(name: .accessibilityPermissionGranted, object: nil)
                 }
             }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        permissionMonitorTimer = timer
         return timer
+    }
+
+    func stopMonitoringPermission() {
+        permissionMonitorTimer?.invalidate()
+        permissionMonitorTimer = nil
     }
 }
