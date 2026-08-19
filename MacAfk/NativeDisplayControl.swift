@@ -235,9 +235,9 @@ final class NativeDisplayControl: ObservableObject {
         case .ddc:
             guard let maxValue = display.ddcMaxValue ?? cachedDDCValues[displayID]?.max, maxValue > 0 else { return false }
             let target = UInt16((Float(maxValue) * clamped).rounded())
-            pendingLock.lock()
-            pendingDDCTargets[displayID] = (target, clamped)
-            pendingLock.unlock()
+            pendingLock.withLock {
+                pendingDDCTargets[displayID] = (target, clamped)
+            }
             return await runOnQueue { [weak self] in
                 guard let self else { return false }
                 self.pendingLock.lock()
@@ -281,9 +281,9 @@ final class NativeDisplayControl: ObservableObject {
             }
             return success
         case .ddc:
-            pendingLock.lock()
-            pendingDDCTargets.removeValue(forKey: displayID)
-            pendingLock.unlock()
+            pendingLock.withLock {
+                _ = pendingDDCTargets.removeValue(forKey: displayID)
+            }
             return await runOnQueue { [weak self] in
                 guard let self else { return false }
                 self.restoreGamma(displayID)

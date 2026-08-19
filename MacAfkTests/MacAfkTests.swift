@@ -94,7 +94,9 @@ struct LaunchAtLoginHelperTests {
         _ = LaunchAtLoginHelper.isLaunchAtLoginEnabled()
     }
 
-    @Test func setLaunchAtLoginReturnsBool() {
+    // CI 环境无用户会话，SMAppService 注册会被系统拒绝，仅在本地运行
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil))
+    func setLaunchAtLoginReturnsBool() {
         let current = LaunchAtLoginHelper.isLaunchAtLoginEnabled()
         let result = LaunchAtLoginHelper.setLaunchAtLogin(enabled: current)
         #expect(result == true)
