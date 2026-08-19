@@ -111,6 +111,23 @@ private final class DisplayServicesBackend {
     }
 }
 
+/// 外接显示器控制方式
+enum ExternalControlMode: String {
+    case native
+    case betterDisplay
+
+    static let userDefaultsKey = "externalControlMode"
+
+    static var current: ExternalControlMode {
+        if let raw = UserDefaults.standard.string(forKey: userDefaultsKey),
+           let mode = ExternalControlMode(rawValue: raw) {
+            return mode
+        }
+        // 未显式选择时：曾启用 BetterDisplay 集成的用户保持原行为
+        return UserDefaults.standard.bool(forKey: "useBetterDisplay") ? .betterDisplay : .native
+    }
+}
+
 /// 亮度控制类 - Pro 版本
 class BrightnessControl: ObservableObject {
     @Published private(set) var issues: [BrightnessControlIssue] = []
@@ -118,16 +135,29 @@ class BrightnessControl: ObservableObject {
     private var previousBrightnessMap: [CGDirectDisplayID: Float] = [:]
     private let displayBackend = DisplayServicesBackend()
     private let betterDisplayManager = BetterDisplayManager.shared
+    let nativeControl = NativeDisplayControl()
     private var displayUUIDMapping: [CGDirectDisplayID: String] = [:]
+    private var nativeChangeCancellable: AnyCancellable?
 
     init() {
         if !displayBackend.isAvailable {
             publishIssues([.displayServicesUnavailable])
         }
+        nativeChangeCancellable = nativeControl.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
         updateDisplayMapping()
     }
 
     func updateDisplayMapping() {
+        debugLog("updateDisplayMapping, external mode: \(ExternalControlMode.current.rawValue)", logger: AppLog.brightness)
+        if ExternalControlMode.current == .native {
+            Task {
+                await nativeControl.detectDisplays()
+            }
+            return
+        }
+
         displayUUIDMapping.removeAll()
 
         guard betterDisplayManager.isInstalled && betterDisplayManager.isRunning && betterDisplayManager.isEnabled else {
@@ -138,6 +168,14 @@ class BrightnessControl: ObservableObject {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 500_000_000)
             await self.refreshDisplayMapping()
+        }
+    }
+
+    /// native 模式下确保检测结果覆盖全部在线外接屏
+    private func ensureNativeDetection(_ externalDisplays: [CGDirectDisplayID]) async {
+        let known = Set(nativeControl.displays.map(\.displayID))
+        if !Set(externalDisplays).isSubset(of: known) {
+            await nativeControl.detectDisplays()
         }
     }
 
@@ -191,9 +229,13 @@ class BrightnessControl: ObservableObject {
 
         let displays = getAllDisplays()
         let externalDisplays = displays.filter { CGDisplayIsBuiltin($0) == 0 }
+        let externalMode = ExternalControlMode.current
+        debugLog("setLowest: mode=\(externalMode.rawValue) displays=\(displays) externals=\(externalDisplays)", logger: AppLog.brightness)
 
         if !externalDisplays.isEmpty {
-            if displayUUIDMapping.isEmpty || externalDisplays.contains(where: { displayUUIDMapping[$0] == nil }) {
+            if externalMode == .native {
+                await ensureNativeDetection(externalDisplays)
+            } else if displayUUIDMapping.isEmpty || externalDisplays.contains(where: { displayUUIDMapping[$0] == nil }) {
                 await refreshDisplayMapping()
             }
         }
@@ -205,6 +247,8 @@ class BrightnessControl: ObservableObject {
                 } else if displayBackend.isAvailable {
                     newIssues.append(.builtinBrightnessFailed(displayID: displayID))
                 }
+            } else if externalMode == .native {
+                _ = await nativeControl.cacheBrightness(displayID)
             } else if let uuid = displayUUIDMapping[displayID] {
                 await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     betterDisplayManager.cacheBrightnessByUUID(uuid: uuid) { _ in
@@ -229,6 +273,7 @@ class BrightnessControl: ObservableObject {
 
     private func performRestoreBrightness() async {
         let displays = getAllDisplays()
+        let externalMode = ExternalControlMode.current
 
         for displayID in displays {
             if CGDisplayIsBuiltin(displayID) != 0 {
@@ -240,6 +285,8 @@ class BrightnessControl: ObservableObject {
                         publishIssues(newIssues)
                     }
                 }
+            } else if externalMode == .native {
+                _ = await nativeControl.restoreBrightness(displayID)
             } else if let uuid = displayUUIDMapping[displayID] {
                 await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                     betterDisplayManager.restoreCachedBrightnessByUUID(uuid: uuid) { _ in
@@ -287,6 +334,13 @@ class BrightnessControl: ObservableObject {
     private func setAllDisplaysBrightness(value: Float) async {
         let displays = getAllDisplays()
         let clampedValue = max(min(value, 1.0), 0.0)
+        let externalMode = ExternalControlMode.current
+        if externalMode == .native {
+            let externals = displays.filter { CGDisplayIsBuiltin($0) == 0 }
+            if !externals.isEmpty {
+                await ensureNativeDetection(externals)
+            }
+        }
         var newIssues = issues.filter {
             if case .externalBrightnessFailed = $0 { return false }
             if case .builtinBrightnessFailed = $0 { return false }
@@ -298,6 +352,11 @@ class BrightnessControl: ObservableObject {
                 let success = await displayBackend.setBrightness(displayID: displayID, value: clampedValue)
                 if !success && displayBackend.isAvailable {
                     newIssues.append(.builtinBrightnessFailed(displayID: displayID))
+                }
+            } else if externalMode == .native {
+                let success = await nativeControl.setBrightness(displayID, level: clampedValue)
+                if !success {
+                    newIssues.append(.externalBrightnessFailed(displayID: displayID))
                 }
             } else if let uuid = displayUUIDMapping[displayID] {
                 let success = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
