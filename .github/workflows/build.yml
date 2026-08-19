@@ -127,7 +127,8 @@ jobs:
     - name: 运行单元测试
       if: steps.test_env.outputs.can_run_tests == 'true'
       run: |
-        xcodebuild test \
+        # TEST_RUNNER_ 前缀的变量会被 xcodebuild 注入测试宿主进程（宿主不继承 shell 的 CI 变量）
+        TEST_RUNNER_CI=true xcodebuild test \
           -scheme MacAfk \
           -destination 'platform=macOS' \
           -enableCodeCoverage YES \
