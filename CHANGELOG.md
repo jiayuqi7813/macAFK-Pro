@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-08-19
+
+### Added
+- 🖥️ **外接显示器原生亮度控制 (Beta)** - 无需安装 BetterDisplay 即可控制外接屏亮度
+  - 三层控制路由：系统原生亮度（Apple Studio Display / Pro Display XDR / LG UltraFine）→ DDC/CI 硬件背光 → gamma 软件调暗兜底
+  - DDC/CI 基于 IOAVService 实现（移植自 MonitorControl 的 MIT 开源实现），支持 M1 系内建 HDMI 转换芯片（MCDP29xx）
+  - 低亮度段自动叠加 gamma 调暗，亮度 0 时屏幕完全变黑，效果与 BetterDisplay 组合调暗一致
+  - 设置页新增「外接显示器控制方式」切换，BetterDisplay 集成全部功能保留可选
+  - 显示器列表展示每台屏所用的控制方式，支持逐屏读取与测试亮度
+- 📄 **技术调研报告** - docs/ 目录附外接屏亮度原生化方案的完整调研
+
+### Fixed
+- 🐛 修复恢复亮度后外接屏亮度归零的问题（读取操作污染恢复原值缓存）
+- 🐛 修复 CI 环境下开机自启动测试失败（runner 无用户会话时跳过 SMAppService 注册测试）
+
+### Changed
+- ⚡ **DDC 写请求合并** - 亮度滑杆拖动期间只写最新值，消除队列积压带来的延迟
+- 🔧 **存量用户兼容** - 未显式选择控制方式时，曾启用 BetterDisplay 集成的配置自动保持原行为
+- 🛠️ 消除 Swift 6 语言模式下 NSLock 异步上下文调用的警告
+
 ## [1.0.6] - 2026-05-21
 
 ### Added
