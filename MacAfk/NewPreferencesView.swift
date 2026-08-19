@@ -53,6 +53,21 @@ struct NewPreferencesView: View {
     @State private var isCheckingEnvironment = false
     @State private var checkResults: (installed: Bool, running: Bool, connected: Bool) = (false, false, false)
 
+    @AppStorage(ExternalControlMode.userDefaultsKey) private var externalControlModeRaw: String = ExternalControlMode.current.rawValue
+    @State private var selectedNativeDisplayID: CGDirectDisplayID?
+    @State private var nativeTestBrightness: Float = 0.5
+    @State private var nativeCurrentBrightness: Float?
+    @State private var isNativeTesting = false
+
+    private var currentExternalMode: ExternalControlMode {
+        ExternalControlMode(rawValue: externalControlModeRaw) ?? .native
+    }
+
+    private var selectedNativeDisplay: NativeExternalDisplay? {
+        guard let selectedNativeDisplayID else { return nil }
+        return appModel.brightnessControl.nativeControl.displays.first { $0.displayID == selectedNativeDisplayID }
+    }
+
     var body: some View {
         NavigationSplitView(preferredCompactColumn: $preferredColumn) {
             List {
@@ -180,17 +195,30 @@ struct NewPreferencesView: View {
 
     private var displaysContent: some View {
         Form {
-            betterDisplaySection
+            controlModeSection
 
-            if betterDisplayManager.isEnabled {
-                displaySelectionSection
-            }
+            if currentExternalMode == .native {
+                nativeDisplaysSection
 
-            if let display = selectedDisplay {
-                displayInfoSections(for: display)
-                displayBrightnessTestSection(for: display)
+                if let display = selectedNativeDisplay {
+                    nativeBrightnessTestSection(for: display)
+                } else {
+                    globalBrightnessSections
+                }
             } else {
-                globalBrightnessSections
+                betterDisplaySection
+
+                if betterDisplayManager.isEnabled {
+                    displaySelectionSection
+                }
+
+                if let display = selectedDisplay {
+                    displayInfoSections(for: display)
+                    displayBrightnessTestSection(for: display)
+                } else {
+                    globalBrightnessSections
+                    betterDisplayHintSections
+                }
             }
         }
         .formStyle(.grouped)
@@ -199,6 +227,131 @@ struct NewPreferencesView: View {
         .onChange(of: selectedDisplayID) { _, _ in
             currentBrightness = nil
             testMessage = ""
+        }
+        .onChange(of: selectedNativeDisplayID) { _, _ in
+            nativeCurrentBrightness = nil
+        }
+    }
+
+    // MARK: - 外接屏控制方式
+
+    @ViewBuilder
+    private var controlModeSection: some View {
+        Section("external_control.title".localized) {
+            Picker("external_control.title".localized, selection: $externalControlModeRaw) {
+                Text("external_control.native".localized).tag(ExternalControlMode.native.rawValue)
+                Text("external_control.betterdisplay".localized).tag(ExternalControlMode.betterDisplay.rawValue)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .onChange(of: externalControlModeRaw) { _, _ in
+                selectedDisplayID = nil
+                selectedNativeDisplayID = nil
+                appModel.brightnessControl.updateDisplayMapping()
+            }
+
+            Text((currentExternalMode == .native
+                ? "external_control.native_hint"
+                : "external_control.betterdisplay_hint").localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - 原生控制
+
+    @ViewBuilder
+    private var nativeDisplaysSection: some View {
+        Section("native_display.list".localized) {
+            let nativeDisplays = appModel.brightnessControl.nativeControl.displays
+
+            if nativeDisplays.isEmpty {
+                Label("native_display.none".localized, systemImage: "display")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            } else {
+                displaySelectionButton(
+                    title: "settings.low_brightness".localized,
+                    detail: nil,
+                    id: nil
+                )
+
+                ForEach(nativeDisplays) { display in
+                    Button {
+                        selectedNativeDisplayID = display.displayID
+                    } label: {
+                        DisplaySelectionRow(
+                            title: display.name,
+                            detail: display.method.localizedKey.localized,
+                            isSelected: selectedNativeDisplayID == display.displayID
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Button("native_display.refresh".localized) {
+                appModel.brightnessControl.updateDisplayMapping()
+            }
+            .buttonStyle(.glass)
+        }
+    }
+
+    @ViewBuilder
+    private func nativeBrightnessTestSection(for display: NativeExternalDisplay) -> some View {
+        Section(display.name) {
+            LabeledContent("native_display.method".localized) {
+                Text(display.method.localizedKey.localized)
+            }
+            LabeledContent("display.info.display_id".localized, value: "\(display.displayID)")
+        }
+
+        Section("display.brightness_test".localized) {
+            LabeledContent("display.brightness_test.get_current".localized) {
+                HStack {
+                    Button("display.brightness_test.get_button".localized) {
+                        isNativeTesting = true
+                        Task { @MainActor in
+                            nativeCurrentBrightness = await appModel.brightnessControl.nativeControl.readBrightness(display.displayID)
+                            isNativeTesting = false
+                        }
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(isNativeTesting)
+
+                    if isNativeTesting {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if let brightness = nativeCurrentBrightness {
+                        Text("\(Int(brightness * 100))%")
+                            .font(.system(.title3, design: .monospaced))
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
+
+            LabeledContent("display.brightness_test.set_target".localized) {
+                Text("\(Int(nativeTestBrightness * 100))%")
+                    .monospacedDigit()
+            }
+
+            Slider(value: $nativeTestBrightness, in: 0...1)
+
+            Button("display.brightness_test.set_button".localized) {
+                isNativeTesting = true
+                Task { @MainActor in
+                    _ = await appModel.brightnessControl.nativeControl.setBrightness(display.displayID, level: nativeTestBrightness)
+                    isNativeTesting = false
+                }
+            }
+            .buttonStyle(.glassProminent)
+            .disabled(isNativeTesting)
+
+            Text("display.brightness_test.hint".localized)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -409,7 +562,10 @@ struct NewPreferencesView: View {
                 }
             }
         }
+    }
 
+    @ViewBuilder
+    private var betterDisplayHintSections: some View {
         Section {
             if !betterDisplayManager.isEnabled {
                 Label("betterdisplay.disabled_warning".localized, systemImage: "exclamationmark.triangle.fill")

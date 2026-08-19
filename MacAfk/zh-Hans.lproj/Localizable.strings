@@ -158,6 +158,22 @@
 "settings.displays" = "显示设置";
 "settings.general" = "常规设置";
 
+// External Display Control Mode
+"external_control.title" = "外接显示器控制方式";
+"external_control.native" = "原生控制 (Beta)";
+"external_control.betterdisplay" = "BetterDisplay 集成";
+"external_control.native_hint" = "应用内直接控制外接显示器亮度，无需安装其他软件。支持系统原生亮度的显示器和 DDC/CI 硬件控制，其余显示器使用软件调暗。";
+"external_control.betterdisplay_hint" = "通过 BetterDisplay 的 Integration API 控制外接显示器亮度，需要安装并运行 BetterDisplay。";
+
+// Native Display Control
+"native_display.list" = "显示器列表";
+"native_display.none" = "未检测到外接显示器";
+"native_display.refresh" = "重新检测显示器";
+"native_display.method" = "控制方式";
+"native_display.method.system" = "系统原生亮度";
+"native_display.method.ddc" = "DDC/CI 硬件控制";
+"native_display.method.shade" = "软件调暗";
+
 // BetterDisplay Integration
 "betterdisplay.title" = "BetterDisplay 集成";
 "betterdisplay.not_installed" = "未安装 BetterDisplay";

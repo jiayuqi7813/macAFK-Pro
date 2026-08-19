@@ -158,6 +158,22 @@
 "settings.displays" = "Display Settings";
 "settings.general" = "General Settings";
 
+// External Display Control Mode
+"external_control.title" = "External Display Control";
+"external_control.native" = "Native Control (Beta)";
+"external_control.betterdisplay" = "BetterDisplay Integration";
+"external_control.native_hint" = "Control external display brightness directly within the app, no additional software required. Uses system native brightness or DDC/CI hardware control where supported, and software dimming for other displays.";
+"external_control.betterdisplay_hint" = "Control external display brightness through BetterDisplay's Integration API. Requires BetterDisplay to be installed and running.";
+
+// Native Display Control
+"native_display.list" = "Display List";
+"native_display.none" = "No external displays detected";
+"native_display.refresh" = "Re-detect Displays";
+"native_display.method" = "Control Method";
+"native_display.method.system" = "System Native Brightness";
+"native_display.method.ddc" = "DDC/CI Hardware Control";
+"native_display.method.shade" = "Software Dimming";
+
 // BetterDisplay Integration
 "betterdisplay.title" = "BetterDisplay Integration";
 "betterdisplay.not_installed" = "BetterDisplay is not installed";

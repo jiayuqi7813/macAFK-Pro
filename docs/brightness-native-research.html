@@ -1,0 +1,505 @@
+<title>MacAfk 亮度原生化</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f7f8f9;
+    --surface: #ffffff;
+    --ink: #22303c;
+    --ink-soft: #4b5a66;
+    --muted: #6d7b86;
+    --line: #dde3e8;
+    --accent: #b96a1b;
+    --accent-soft: #f5e9db;
+    --code-bg: #f0f2f4;
+    --good: #2e7d4f;
+    --good-bg: #e4f1e9;
+    --warn: #a06c10;
+    --warn-bg: #f6eed8;
+    --risk: #a8453a;
+    --risk-bg: #f7e6e3;
+    --card-shadow: 0 1px 3px rgba(34, 48, 60, 0.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181d;
+      --surface: #1c2229;
+      --ink: #dce3e9;
+      --ink-soft: #aeb9c2;
+      --muted: #8794a0;
+      --line: #313a43;
+      --accent: #e09a4a;
+      --accent-soft: #33290f;
+      --code-bg: #232a32;
+      --good: #63b586;
+      --good-bg: #1d3227;
+      --warn: #d3a445;
+      --warn-bg: #34290f;
+      --risk: #d98177;
+      --risk-bg: #3a2320;
+      --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181d;
+    --surface: #1c2229;
+    --ink: #dce3e9;
+    --ink-soft: #aeb9c2;
+    --muted: #8794a0;
+    --line: #313a43;
+    --accent: #e09a4a;
+    --accent-soft: #33290f;
+    --code-bg: #232a32;
+    --good: #63b586;
+    --good-bg: #1d3227;
+    --warn: #d3a445;
+    --warn-bg: #34290f;
+    --risk: #d98177;
+    --risk-bg: #3a2320;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.75;
+    margin: 0;
+    padding: 0 20px 96px;
+    font-size: 15.5px;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  code, pre, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 0.86em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+    overflow-x: auto;
+    font-size: 12.8px;
+    line-height: 1.65;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  header { padding: 64px 0 8px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 34px;
+    line-height: 1.3;
+    margin: 0 0 10px;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+  }
+  .subtitle { color: var(--muted); font-size: 16px; margin: 0 0 36px; max-width: 44em; }
+
+  h2 {
+    font-size: 22px;
+    margin: 64px 0 4px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    letter-spacing: 0.01em;
+  }
+  h2 .no {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--accent);
+    font-size: 15px;
+    margin-right: 10px;
+    font-weight: 600;
+  }
+  h3 { font-size: 16.5px; margin: 34px 0 6px; }
+  p { margin: 12px 0; }
+  ul, ol { padding-left: 1.5em; margin: 12px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--accent); }
+  strong { font-weight: 600; }
+
+  .lead-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: var(--card-shadow);
+    padding: 22px 26px;
+    margin: 28px 0;
+  }
+  .lead-card h2 { border: none; margin: 0 0 8px; padding: 0; font-size: 17px; }
+  .lead-card p { margin: 8px 0; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    margin: 16px 0;
+  }
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  .table-wrap table { margin: 0; min-width: 640px; }
+  th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--line);
+    padding: 8px 14px 8px 0;
+    white-space: nowrap;
+  }
+  td {
+    border-bottom: 1px solid var(--line);
+    padding: 9px 14px 9px 0;
+    vertical-align: top;
+  }
+  td:last-child, th:last-child { padding-right: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    border-radius: 4px;
+    padding: 1px 7px;
+    vertical-align: 1px;
+    white-space: nowrap;
+  }
+  .badge.high   { color: var(--good); background: var(--good-bg); }
+  .badge.medium { color: var(--warn); background: var(--warn-bg); }
+  .badge.risk   { color: var(--risk); background: var(--risk-bg); }
+  .badge.plain  { color: var(--muted); background: var(--code-bg); }
+
+  .layer-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 26px 0;
+  }
+  .layer {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--card-shadow);
+    padding: 16px 22px;
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 4px 18px;
+    align-items: baseline;
+  }
+  .layer .lno {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    grid-row: span 2;
+    align-self: start;
+    padding-top: 2px;
+  }
+  .layer .lname { font-weight: 600; font-size: 15.5px; }
+  .layer .ldesc { color: var(--ink-soft); font-size: 13.8px; grid-column: 2; }
+  .layer-arrow {
+    color: var(--muted);
+    font-size: 12.5px;
+    padding: 6px 0 6px 74px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 26px;
+    margin: 28px 0;
+    box-shadow: var(--card-shadow);
+    columns: 2;
+    column-gap: 40px;
+    font-size: 14px;
+  }
+  .toc a { color: var(--ink-soft); text-decoration: none; display: block; padding: 3px 0; break-inside: avoid; }
+  .toc a:hover { color: var(--accent); }
+  .toc .tno {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    color: var(--accent);
+    font-size: 12px;
+    margin-right: 8px;
+  }
+  @media (max-width: 620px) { .toc { columns: 1; } }
+
+  .note {
+    background: var(--accent-soft);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin: 16px 0;
+    font-size: 14.2px;
+  }
+  .note.riskbox { background: var(--risk-bg); }
+
+  a { color: var(--accent); }
+  .src { color: var(--muted); font-size: 12.5px; }
+  .num { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<main>
+<header>
+  <div class="eyebrow">MacAfk Pro · 技术调研 · 2026-08-19</div>
+  <h1>外接屏亮度控制原生化方案调研</h1>
+  <p class="subtitle">目标：去除低亮度模式对 BetterDisplay 的第三方依赖，在应用内原生控制所有显示器的亮度。调研覆盖 6 个方向 + 2 个补充专题，关键 API 均在本机（M4 Pro，macOS 26.6）实测验证。</p>
+</header>
+
+<div class="lead-card">
+  <h2>结论</h2>
+  <p><strong>可以完全去除 BetterDisplay 依赖。</strong>BetterDisplay 在底层使用的 IOAVService 私有接口由 macOS 公共 IOKit 框架导出，本机实测全部符号与 IORegistry 节点在 macOS 26 上存在且结构未变，MonitorControl（MIT 许可）提供了经过大量用户验证的同路线开源实现，核心代码 275 行、无外部依赖，可直接移植。</p>
+  <p>推荐方案为三层结构：<strong>DisplayServices（系统原生亮度）→ DDC/CI（硬件背光）→ 遮罩窗口（软件调暗兜底）</strong>，按显示器逐台检测路由。预计总工作量 3–4 个工作日。</p>
+  <p>另有一项前置事项：现有内建屏亮度功能在应用内失效，但 DisplayServices API 本身经实测正常，失效原因在应用侧，原因未查明，重建前需先定位（见第 9 节）。</p>
+</div>
+
+<nav class="toc">
+  <a href="#s1"><span class="tno">1</span>现状与依赖点</a>
+  <a href="#s2"><span class="tno">2</span>本机实测结论</a>
+  <a href="#s3"><span class="tno">3</span>推荐方案：三层路由</a>
+  <a href="#s4"><span class="tno">4</span>第 1 层 · DisplayServices</a>
+  <a href="#s5"><span class="tno">5</span>第 2 层 · DDC/CI</a>
+  <a href="#s6"><span class="tno">6</span>第 3 层 · 软件调暗兜底</a>
+  <a href="#s7"><span class="tno">7</span>Intel 机型的处理</a>
+  <a href="#s8"><span class="tno">8</span>与其他亮度工具的共存</a>
+  <a href="#s9"><span class="tno">9</span>风险与未决问题</a>
+  <a href="#s10"><span class="tno">10</span>开源代码复用与许可证</a>
+  <a href="#s11"><span class="tno">11</span>代码改动范围与工作量</a>
+  <a href="#s12"><span class="tno">12</span>硬件安全性结论</a>
+</nav>
+
+<h2 id="s1"><span class="no">1</span>现状与依赖点</h2>
+<p>低亮度模式的功能是：鼠标抖动运行期间把所有显示器亮度降到最低，停止后恢复原值。当前实现分两条路径：</p>
+<ul>
+  <li><strong>内建显示器</strong>：<code>dlopen</code> 加载私有框架 DisplayServices，调用 <code>DisplayServicesGetBrightness / SetBrightness</code>（<code>BrightnessControl.swift</code>）。该路径无第三方依赖，但当前在应用内失效（原因未查明，API 层已排除，见第 9 节）。</li>
+  <li><strong>外接显示器</strong>：通过 DistributedNotificationCenter 调用 BetterDisplay 的 Integration API（<code>BetterDisplayManager.swift</code>），要求用户安装并运行 BetterDisplay 且开启其集成功能。这是唯一的第三方依赖，也是本次调研要替换的部分。</li>
+</ul>
+<p>对方案选择有利的工程条件：应用不走 Mac App Store、未启用 App Sandbox（entitlements 中显式关闭）、已开启 Hardened Runtime 且验证过加载私有框架可行、最低部署版本 macOS 26.0、Xcode 工程使用文件夹同步组（新增源文件不需要改 pbxproj）、无任何 SPM 依赖。</p>
+
+<h2 id="s2"><span class="no">2</span>本机实测结论</h2>
+<p>以下事实在本机（M4 Pro，macOS 26.6 / Darwin 25.6，接有一台 Dell U2720Q 外接屏）直接验证，置信度为最高级：</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>验证项</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td><code>IOAVServiceCreateWithService / ReadI2C / WriteI2C</code> 符号</td><td>存在，由公共框架 IOKit.framework 导出（<code>dyld_info -exports</code> 确认），链接后 extern 声明即可调用，不需要 dlopen</td></tr>
+    <tr><td>IORegistry 中 <code>DCPAVServiceProxy</code> 节点</td><td>存在 14 个，带 <code>Location = "Embedded" / "External"</code> 属性，与 MonitorControl / m1ddc 源码的假设一致</td></tr>
+    <tr><td><code>DisplayServicesGet/SetBrightness</code> 对内建屏</td><td>读取、写入、恢复全部成功（写入测试实际改变了亮度并恢复）</td></tr>
+    <tr><td><code>DisplayServicesCanChangeBrightness</code></td><td>存在；内建屏返回 true，Dell 外接屏返回 false</td></tr>
+    <tr><td><code>DisplayServicesGetBrightness</code> 对普通外接屏</td><td>返回错误码 1000，确认普通第三方外接屏必须走 DDC/CI</td></tr>
+    <tr><td><code>DisplayServicesSetBrightness</code> 对普通外接屏</td><td>返回 0 但无实际效果（假成功），检测支持性不能依据 Set 的返回值</td></tr>
+    <tr><td><code>CGSetDisplayTransferByTable</code>（gamma 表）</td><td>API 调用成功、读回一致；视觉生效无法程序化验证</td></tr>
+    <tr><td>已移除的符号</td><td><code>DisplayServicesBrightnessChanged</code>、<code>CoreDisplay_Display_SupportsUserBrightness</code> 在 macOS 26 上不存在——私有符号必须全部判空处理</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="s3"><span class="no">3</span>推荐方案：三层路由</h2>
+<p>对每台在线显示器（<code>CGGetOnlineDisplayList</code> 枚举）按以下顺序检测并路由，检测结果在显示器配置变化（<code>CGDisplayRegisterReconfigurationCallback</code>）时重建：</p>
+
+<div class="layer-flow">
+  <div class="layer">
+    <span class="lno">L0</span>
+    <span class="lname">前置排除：虚拟显示器</span>
+    <span class="ldesc">AirPlay、Sidecar、DisplayLink 坞输出的虚拟屏（<code>kCGDisplayIsVirtualDevice</code>）没有可用的硬件亮度通道，直接进入第 3 层。镜像模式先经 <code>CGDisplayMirrorsDisplay</code> 解析到真实显示器。</span>
+  </div>
+  <div class="layer-arrow">↓ 物理显示器</div>
+  <div class="layer">
+    <span class="lno">L1</span>
+    <span class="lname">DisplayServices —— 系统原生亮度</span>
+    <span class="ldesc">覆盖内建屏和 Apple 生态外接屏（Studio Display、Pro Display XDR、LG UltraFine）。试读检测：<code>Get</code> 返回 0 且值 ≥ 0 即支持。复用现有 DisplayServicesBackend，新增约 30 行。</span>
+  </div>
+  <div class="layer-arrow">↓ Get 试读失败（返回 1000）</div>
+  <div class="layer">
+    <span class="lno">L2</span>
+    <span class="lname">DDC/CI —— 硬件背光控制</span>
+    <span class="ldesc">覆盖绝大多数第三方外接屏。Apple Silicon 走 IOAVService + DCPAVServiceProxy，移植 MonitorControl 的 Arm64DDC.swift（MIT，275 行）。真正降低背光、降低功耗，与 BetterDisplay 的底层机制相同。</span>
+  </div>
+  <div class="layer-arrow">↓ DDC 读取失败（重试后）/ 显示器不支持 / Intel 机型</div>
+  <div class="layer">
+    <span class="lno">L3</span>
+    <span class="lname">遮罩窗口 —— 软件调暗兜底</span>
+    <span class="ldesc">每屏覆盖一个黑色高层级 NSWindow（照 MonitorControl 的 shade 实现）。公开 AppKit API，对任何显示器一律有效，进程退出后窗口必然消失，恢复可靠性最高。不降低背光功耗。</span>
+  </div>
+</div>
+
+<p>这个结构与 MonitorControl 的生产方案一致（Apple 屏走 DisplayServices、普通屏走 DDC、虚拟屏走遮罩），每一层都有开源先例可对照。三层各自独立，可以分阶段落地：先做 L1 + L3 就能覆盖全部显示器（L3 保证功能下限），L2 提供真实背光控制作为第二阶段。</p>
+
+<h2 id="s4"><span class="no">4</span>第 1 层 · DisplayServices</h2>
+<p>系统设置里能直接调亮度的显示器（内建屏、Apple Studio Display、Pro Display XDR、LG UltraFine 系列），第三方非沙盒应用都可以用同一组 DisplayServices 函数控制，不需要任何 entitlement。MonitorControl 对这类屏只用 <code>DisplayServicesGetBrightness / SetBrightness</code> 两个函数（源码级确认，AppleDisplay.swift）。</p>
+<h3>检测方法（照 MonitorControl 的 isAppleDisplay）</h3>
+<pre><code>func supportsNativeBrightness(_ id: CGDirectDisplayID) -> Bool {
+    // 1. 防第三方 HDR 屏误报（macOS 15+ 例外分支；0x610 = Apple vendor）
+    if CGDisplayVendorNumber(id) != 0x610,
+       cgsIsHDRSupported?(id) == true, cgsIsHDREnabled?(id) == true {
+        return CGDisplayIsBuiltin(id) != 0
+    }
+    // 2. 试读检测（核心）：Get 成功且值非负 => 支持原生控制
+    var b: Float = -1
+    if dsGetBrightness(id, &b) == 0, b >= 0 { return true }
+    return CGDisplayIsBuiltin(id) != 0
+}</code></pre>
+<p>要点：</p>
+<ul>
+  <li>检测依据只能是 Get 试读或 <code>CanChangeBrightness</code>。<code>Set</code> 对不支持的屏返回 0 且无效果（本机实测确认），返回值没有判定价值。</li>
+  <li>白名单方式不可行：LG UltraFine 的 vendor 为 LG，按 Apple vendor 过滤会漏判。</li>
+  <li><code>CGSIsHDRSupported / CGSIsHDREnabled</code> 来自 SkyLight 框架，本机实测可用；这两个符号与所有私有符号一样必须判空。</li>
+  <li>不引入 CoreDisplay 的亮度函数：<code>CoreDisplay_Display_GetUserBrightness</code> 在 Apple Silicon 上对任何屏都返回 1.0，无法区分状态（本机实测 + nriley/brightness 源码注释相互印证）。</li>
+</ul>
+<p>Apple 生态外接屏没有实机验证，结论来自 MonitorControl / Brightness-Sync 源码与多个独立来源交叉印证 <span class="badge medium">MEDIUM</span>，建议发布前找有 Studio Display 的用户实测。</p>
+
+<h2 id="s5"><span class="no">5</span>第 2 层 · DDC/CI</h2>
+<p>DDC/CI 是显示器行业标准协议，通过视频线内的 I2C 通道读写显示器设置，亮度对应 VCP 代码 <code>0x10</code>。BetterDisplay、MonitorControl、Lunar、m1ddc 控制外接屏背光走的都是这条协议。</p>
+
+<h3>5.1 Apple Silicon 实现路线</h3>
+<p>调用序列（MonitorControl Arm64DDC.swift 与 m1ddc 源码逐行核读，两者交叉一致 <span class="badge high">HIGH</span>）：</p>
+<ol>
+  <li><strong>声明符号</strong>：IOAVService 四个函数由公共 IOKit 导出，bridging header 里 extern 声明约 6 行，加 <code>CoreDisplay_DisplayCreateInfoDictionary</code>（CoreDisplay 导出）。</li>
+  <li><strong>枚举与匹配</strong>：递归遍历 IORegistry 的 IOService plane，找 framebuffer 节点（<code>IOObjectConformsTo(service, "IOMobileFramebuffer")</code>，一次覆盖 M1 的 AppleCLCD2 与 M2 Pro 之后的 IOMobileFramebufferShim），迭代序列中紧随其后的 <code>DCPAVServiceProxy</code> 节点且 <code>Location == "External"</code> 时调 <code>IOAVServiceCreateWithService</code> 创建服务。多显示器必须逐个创建，无参的 <code>IOAVServiceCreate</code> 只返回默认的一个。</li>
+  <li><strong>与 CGDirectDisplayID 对应</strong>：简单做法（m1ddc）用 <code>CoreDisplay_DisplayCreateInfoDictionary</code> 的 IODisplayLocation 路径直接定位 registry 节点；完备做法（MonitorControl）用 EDID UUID 分段 + 位置路径 + 序列号打分后贪心分配，可区分多台同型号显示器。建议采用打分法。</li>
+  <li><strong>读写 DDC 包</strong>：I2C 地址 <code>0x37</code>、子地址 <code>0x51</code>。写亮度 6 字节包 <code>[0x84, 0x03, 0x10, hi, lo, chk]</code>；读亮度先写请求 <code>[0x82, 0x01, 0x10, chk]</code>，等待 50ms 后读回 11 字节，其中第 7–8 字节为 max、第 9–10 字节为当前值（大端）。校验和为逐字节 XOR。</li>
+</ol>
+
+<h3>5.2 时序参数（MonitorControl 默认值，源码确认）</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>参数</th><th>取值</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>写前延迟</td><td class="num">10 ms</td><td>每次 I2C 写之前</td></tr>
+    <tr><td>写重复次数</td><td class="num">2 次</td><td>同一包连写两遍，防止部分显示器丢包（写操作幂等）</td></tr>
+    <tr><td>读回延迟</td><td class="num">50 ms</td><td>写读请求与读回之间</td></tr>
+    <tr><td>失败重试</td><td class="num">4 次，间隔 20 ms</td><td>Apple Silicon 上 DDC 读的单次失败率约 30%（Lunar 作者实测），重试为必要设计</td></tr>
+    <tr><td>命令间隔</td><td class="num">≥ 50 ms</td><td>DDC/CI 规范要求 40–200ms</td></tr>
+    <tr><td>唤醒保护期</td><td class="num">5–8 s</td><td>显示器唤醒 / 重新配置后暂停 DDC 操作（BetterDisplay 与 MonitorControl 均内置）</td></tr>
+  </tbody>
+</table></div>
+
+<h3>5.3 MacAfk 的调用流程</h3>
+<ol>
+  <li>抖动开始：逐屏串行读 VCP <code>0x10</code> 得到 <code>(current, max)</code>，两个 raw 值持久化到磁盘；读失败（重试用尽）的屏降级到第 3 层，不盲写。</li>
+  <li>写入最低值：写 0（clamp 到 <code>[0, max]</code>）；可选 50ms 后读回验证（HDR 模式的屏可能忽略写入且无错误返回）。</li>
+  <li>抖动停止：写回持久化的 raw current 值。恢复前先读回当前值：与自己写入的低值不一致时说明期间被用户或其他工具改过，跳过恢复。验证时容忍 ±1（显示器内部换算误差）。</li>
+  <li>启动时检查磁盘上是否有未恢复的残留值（进程曾异常退出），有则补恢复——DDC 写入的是显示器自身的持久设置，进程退出不会自动回滚，这是把原值持久化的主要理由。</li>
+  <li>睡眠 / 唤醒 / 显示器配置变化期间挂起 DDC 操作，唤醒后延迟再恢复；服务映射在配置回调里重建。</li>
+</ol>
+
+<h3>5.4 已知硬件例外</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>硬件情形</th><th>现象</th><th>处理</th></tr></thead>
+  <tbody>
+    <tr><td>M1 全系（及部分入门款 M2）内建 HDMI 口</td><td>该口经 MCDP29xx 转换芯片，标准 0x37 地址不通</td><td>检测 DCPAVServiceProxy 父节点 <code>EPICProviderClass == "AppleDCPMCDP29XX"</code>，改用地址 <code>0xB7</code>（m1ddc PR #60，2026-08 合入）。按属性检测而非按芯片代数硬编码，两种口径的资料差异不影响实现</td></tr>
+    <tr><td>M2 Pro/Max 及之后的 HDMI 2.1 口</td><td>不经转换芯片</td><td>0x37 直接可用（用户实测报告）</td></tr>
+    <tr><td>HDR 模式开启的显示器</td><td>可能锁定或忽略 DDC 亮度命令，无错误返回</td><td>写后读回验证作为生效判据，无效则降级第 3 层</td></tr>
+    <tr><td>三星 Smart Monitor / 电视类产品</td><td>不支持 DDC/CI；部分品牌出厂默认关闭 DDC/CI</td><td>读不到 VCP 0x10 按正常路径处理（降级），不作为错误</td></tr>
+    <tr><td>个别显示器</td><td>DDC 通道在特定电源状态下停止响应（断电数秒或打开 OSD 菜单可恢复）</td><td>重试用尽后放弃本次操作</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="s6"><span class="no">6</span>第 3 层 · 软件调暗兜底</h2>
+<p>两种候选实现的对比（均为公开 API）：</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>维度</th><th>遮罩窗口（推荐）</th><th>Gamma 表</th></tr></thead>
+  <tbody>
+    <tr><td>API</td><td>NSWindow（AppKit 公开）</td><td><code>CGSetDisplayTransferByTable</code>（CoreGraphics 公开）</td></tr>
+    <tr><td>macOS 26 可靠性</td><td>无已知问题</td><td>Tahoe 周期内两次出现调用成功但屏幕无变化的静默失效（beta1–4 全体；26.3/26.4 在 M5 系新硬件上再次出现，截至 2026-06 未修复），且应用无法从返回值检测到失效</td></tr>
+    <tr><td>恢复可靠性</td><td>窗口随进程退出（含崩溃）必然消失</td><td>依赖主动恢复；显示器重配置、唤醒后需重新应用</td></tr>
+    <tr><td>与其他工具的冲突</td><td>无</td><td>f.lux 等会周期性重写 gamma 表，互相覆盖</td></tr>
+    <tr><td>录屏 / 屏幕共享</td><td>画面会拍到黑色遮罩（macOS 15+ 无法将窗口从捕获中排除）</td><td>捕获画面不受影响</td></tr>
+    <tr><td>HDR 内容</td><td>覆盖有效</td><td>HDR 管线下压暗效果异常</td></tr>
+  </tbody>
+</table></div>
+<p>本场景（挂机期间视觉压黑、结束后可靠恢复）对遮罩方案的弱项（半透明中间档的显示效果）没有要求，alpha 直接用 0.95–1.0；对其强项（恢复绝对可靠）要求最高，因此推荐遮罩窗口。gamma 的静默失效结论中「M5 硬件再次失效」一条来源链较单一 <span class="badge medium">MEDIUM</span>，但遮罩方案的恢复可靠性优势独立于该结论成立。</p>
+<p>实现要点（照 MonitorControl 的 shade 生产实现）：</p>
+<pre><code>let shade = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: false)
+shade.backgroundColor = .clear
+shade.ignoresMouseEvents = true              // 不拦截鼠标抖动
+shade.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+shade.collectionBehavior = [.stationary, .canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary]
+shade.contentView?.wantsLayer = true
+shade.contentView?.layer?.backgroundColor = CGColor.black
+shade.contentView?.alphaValue = 0.97         // 压暗程度；1.0 全黑（OLED 像素熄灭）
+shade.setFrame(screen.frame, display: true)
+shade.orderFrontRegardless()
+// 恢复：close()；屏幕配置变化时销毁全部遮罩并延迟约 1s 重建</code></pre>
+<p>说明：软件调暗只改变显示内容，外接 LCD 的背光功耗不变（OLED / miniLED 屏在全黑内容下实际降低功耗）；遮罩层级低于锁屏界面，与防锁屏主功能无冲突。界面文案上应注明该屏走的是软件调暗。</p>
+
+<h2 id="s7"><span class="no">7</span>Intel 机型的处理</h2>
+<p>macOS 26 支持的 Intel 机型仅 4 款（Mac Pro 2019、MacBook Pro 16" 2019、MacBook Pro 13" 2020 四雷电口、iMac 27" 2020），且 Tahoe 为最后一个支持 Intel 的大版本。Intel 上 IOAVService 路线完全不存在，DDC 需另走 IOFramebuffer + <code>IOI2CSendRequest</code>（IOKit 公开头文件 <code>IOKit/i2c/IOI2CInterface.h</code>，macOS 26 SDK 中完整保留）。</p>
+<p><strong>建议：第一阶段 Intel 机型不做 DDC，外接屏统一走第 3 层遮罩兜底。</strong>依据：受众极小且只减不增；团队无 Intel 测试机时，读回复延迟等参数（Intel 核显与 AMD 独显差异大，<code>minReplyDelay</code> 取值不当有内核崩溃风险，ddcctl 源码注释引用 Apple 文档警告）无法实测调优；MonitorControl 的 IntelDDC.swift 虽标注 MIT，但其代码来源链上游包含 GPLv3 项目和一个无许可证仓库，直接复制存在许可证争议（见第 10 节）。如后续确有 Intel 用户需求，按公开 API + VESA 规范自行重写约 200–260 行即可，无私有符号障碍。</p>
+
+<h2 id="s8"><span class="no">8</span>与其他亮度工具的共存</h2>
+<p>macOS 在 IOAVService / IOI2CInterface 层没有跨进程的 DDC 请求串行化（各开源实现源码确认只有进程内队列），两个进程并发读写同一显示器会互相破坏 DDC 事务。BetterDisplay、Lunar、MonitorControl 的亮度同步 / 自动亮度 / 唤醒恢复功能都会用各自内部记录的值覆写外部写入。因此：</p>
+<ul>
+  <li><strong>检测到 BetterDisplay 在运行时避让</strong>：继续通过现有 Integration API 通道读写（保留 BetterDisplayManager 作为可选通道），不直写 DDC。注意现有代码里的 bundle id <code>me.waydabber.BetterDisplay</code> 为旧版本标识，现行版本为 <code>pro.betterdisplay.BetterDisplay</code>，两个都要精确匹配。这样对存量 BetterDisplay 用户的行为不变，新用户则不再需要安装它。</li>
+  <li><strong>检测到 Lunar（fyi.lunar.Lunar）或 MonitorControl（me.guillaumeb.MonitorControl）运行时</strong>：首次提示两者的自动化功能可能与低亮度模式互相覆盖，附「不再提示」选项，不阻止功能运行。Lunar 与 MonitorControl 自身都有同类冲突检测与提示的先例。</li>
+  <li><strong>恢复前读回校验</strong>（第 5.3 节第 3 条）是与所有自动化工具共存的关键防线，成本低且不依赖检测覆盖完整。</li>
+  <li><strong>读回复时校验 VCP 代码</strong>：MonitorControl 的读实现只校验 checksum，跨进程交错时可能把其他进程请求的回复当作自己的数据；移植时补一行 <code>reply[4] == 0x10</code> 检查。</li>
+</ul>
+
+<h2 id="s9"><span class="no">9</span>风险与未决问题</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>事项</th><th>说明</th><th>应对</th></tr></thead>
+  <tbody>
+    <tr><td>应用内 DisplayServices 失效</td><td>内建屏亮度控制在应用内不工作，而同一 API 在本机独立进程实测正常。原因未查明</td><td>重建前先在应用进程内复现定位（打包环境、调用时机、日志），确认后再决定 L1 层直接复用还是修正</td></tr>
+    <tr><td>私有 API 无兼容承诺</td><td><code>DisplayServicesBrightnessChanged</code> 在 macOS 26 被移除即为实例。IOAVService 系列虽由公共框架导出但无文档</td><td>所有私有符号 dlsym / 弱链接判空，缺失时逐层降级（最终落到第 3 层公开 API）；BetterDisplay / MonitorControl / Lunar 同依赖这些接口，系统变更时社区会快速适配</td></tr>
+    <tr><td>DDC 兼容性长尾</td><td>不同显示器 / 线材 / 坞的 DDC 行为差异大，读失败率高</td><td>重试 + 读失败降级第 3 层保证功能下限；发布后按用户反馈补充例外清单</td></tr>
+    <tr><td>Apple 生态外接屏无实机验证</td><td>Studio Display / UltraFine 的 L1 结论来自源码与多来源交叉印证</td><td>发布前邀请用户实测，或首个版本对这类屏同时保留 L2 探测</td></tr>
+    <tr><td>时序参数的来源差异</td><td>调研中的两处数值口径差异（标准读延迟与 MCDP29xx 读延迟均为 50ms；Intel 读校验和的初值写法两家不同）</td><td>实现时以 MonitorControl 当前源码为唯一基准逐字节对照，不混用两家的参数</td></tr>
+    <tr><td>项目许可证文件缺失</td><td>README 声明 MIT 但仓库根目录没有 LICENSE 文件，README 内链接失效</td><td>补一份 LICENSE 文件（与本次改动无关，顺带修复）</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="s10"><span class="no">10</span>开源代码复用与许可证</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>项目</th><th>许可证</th><th>可用性</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>MonitorControl / Arm64DDC.swift</td><td><span class="badge high">MIT</span></td><td>推荐移植</td><td>275 行、仅依赖 Foundation + IOKit、自包含；作者 waydabber 即 BetterDisplay 作者，与 BetterDisplay 底层同源；在 M1–M4、macOS 26 上经大量用户验证</td></tr>
+    <tr><td>waydabber / AppleSiliconDDC</td><td><span class="badge high">MIT</span></td><td>备选（SPM 包）</td><td>与 Arm64DDC 同源，核心 276 行；最后提交 2026-02 前，2026-08 合入 m1ddc 的 MCDP29xx 支持可能未同步，引入前需核对。项目当前无 SPM 依赖，直接拷文件更贴合现状</td></tr>
+    <tr><td>waydabber / m1ddc</td><td><span class="badge high">MIT</span></td><td>参考</td><td>CLI 工具（Objective-C 约 780 行）；MCDP29xx（0xB7）支持的最新参考实现</td></tr>
+    <tr><td>MonitorControl / IntelDDC.swift</td><td><span class="badge medium">MIT*</span></td><td>谨慎</td><td>标注 MIT，但代码来源链上游含 GPLv3 项目（jontaylor → ddcctl）和无许可证仓库（reitermarkus）；需要 Intel DDC 时建议按公开 API 自行重写</td></tr>
+    <tr><td>kfix / ddcctl、jontaylor / DDC-CI-Tools</td><td><span class="badge risk">GPLv3</span></td><td>不可复制</td><td>代码进入闭源分发的应用即违反许可证；仅可阅读参考思路</td></tr>
+    <tr><td>reitermarkus / DDC.swift</td><td><span class="badge risk">无许可证</span></td><td>不可复制</td><td>仓库无 LICENSE 文件，默认保留所有权利；2021 年后停更</td></tr>
+    <tr><td>alin23 / Lunar</td><td><span class="badge risk">部分加密</span></td><td>仅阅读</td><td>仓库挂 MIT 但付费功能代码加密、无法完整编译；其 Intel DDC.c 来源为 GPLv3 项目</td></tr>
+  </tbody>
+</table></div>
+<p>义务：移植 MIT 代码时保留原版权头，在应用关于页或随附文件中列出 MonitorControl 的 MIT 声明与许可证文本。AppleSiliconDDC 的 README 请求公开提及该仓库（非法律义务，建议照做）。</p>
+
+<h2 id="s11"><span class="no">11</span>代码改动范围与工作量</h2>
+<p>现有耦合面收敛良好：AppModel 与 ContentView 只依赖 BrightnessControl 的通用接口（<code>setLowestBrightness / restoreBrightness / setCustomBrightness / getCurrentBrightness / issues</code>），接口签名与 BetterDisplay 无关，替换后原样保留。</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>文件</th><th>改动类型</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td><code>ExternalDisplayControl.swift</code>（新）</td><td>新增，约 300–500 行</td><td>三层路由 + Arm64DDC 移植 + 遮罩窗口。主要工作量与风险点（DDC 真机兼容性验证）</td></tr>
+    <tr><td><code>BetterDisplayManager.swift</code></td><td>精简保留</td><td>保留检测与 Integration API 通道用于避让（第 8 节）；bundle id 更新为新旧双匹配。若决定不做避让则整个删除（355 行，注意 <code>BetterDisplayInfo</code> 类型被设置界面 4 处签名引用）</td></tr>
+    <tr><td><code>BrightnessControl.swift</code></td><td>约 100 行 diff</td><td>删除 UUID 映射逻辑，外接屏三处分支改调新模块；issue 枚举语义更新（<code>betterDisplayNotReady</code> → 分层状态）</td></tr>
+    <tr><td><code>NewPreferencesView.swift</code></td><td>约 300–400 行 diff</td><td>显示器标签页重做：删除 BetterDisplay 集成区、环境检测弹窗；显示器列表与亮度测试区数据源换为 CGDirectDisplayID 枚举，按屏显示所走的层级（原生 / DDC / 软件调暗）</td></tr>
+    <tr><td><code>AppModel.swift</code>、<code>ContentView.swift</code></td><td>零改动</td><td>仅随 issue 文案自动变化</td></tr>
+    <tr><td>本地化（en / zh-Hans）</td><td>机械改动</td><td>删除约 30 个 <code>betterdisplay.*</code> key，改写低亮度模式描述与两条错误文案，新增降级状态文案</td></tr>
+    <tr><td>README / README_CN / CHANGELOG</td><td>文档</td><td>各约 10 处：特性描述、FAQ、技术方案、配置指引、致谢</td></tr>
+  </tbody>
+</table></div>
+<p>工作量估计：核心模块 1.5–2 天（含多台外接屏真机验证）、BrightnessControl 改造 0.5 天、设置界面 0.5–1 天、本地化与文档 0.5 天，合计约 3–4 个工作日。落地顺序建议：先定位应用内 DisplayServices 失效原因（第 9 节）→ L1 + L3（功能下限，全显示器覆盖）→ L2 DDC（真实背光）→ 共存避让与界面完善。</p>
+
+<h2 id="s12"><span class="no">12</span>硬件安全性结论</h2>
+<p>写 VCP 0x10 亮度对显示器硬件为低风险操作：</p>
+<ul>
+  <li>有记录的显示器固件异常案例全部来自输入源切换（VCP 0x60）或错误值域的其他控制码，检索范围内没有写亮度（含写 0、快速连写）导致硬件异常的报告 <span class="badge high">HIGH</span>。</li>
+  <li>存储磨损为理论顾虑（部分 EEPROM 写寿命约 10 万次量级），无实证失效案例；Lunar 作者对一台 LG 实测 5 年数百万次写入后存储正常。本方案一次会话仅两次写（降低 + 恢复），安全余量极大，不需要渐变动画。</li>
+  <li>实现约束：只发 VCP <code>0x10</code>，芯片地址硬编码 <code>0x37</code>（同总线 0x50 为 EDID 存储，写错地址有损坏 EDID 的历史案例）；写前必须读到 <code>(current, max)</code> 并 clamp，恢复直接写回 raw 值不做百分比换算（Gigabyte 值域案例：按错误尺度写入曾导致设置持久异常）。</li>
+  <li>写 0 在绝大多数 LCD 上为背光最低仍可见；个别老款 Dell 固件把低值钳制到 30，属可接受降级。少数显示器收到 DDC 亮度命令会显示自己的 OSD 提示，主机端无规避手段，写入 FAQ 说明即可。</li>
+</ul>
+
+<p class="src" style="margin-top: 56px;">调研方法：6 个并行方向（Apple Silicon DDC、Intel DDC、系统原生亮度、软件调暗、开源许可证、代码库改动面）+ 完整性审查 + 2 个补充专题（硬件安全性、工具共存），共 9 个调研代理、294 次工具调用。证据分级：HIGH = 本机实测或亲读源码 / 官方文档；MEDIUM = 多个独立来源一致；关键 API 结论均在 M4 Pro + macOS 26.6 实测。主要来源：MonitorControl、m1ddc、AppleSiliconDDC、Lunar 源码，VESA MCCS 2.2a 规范，ddcutil 文档，Apple 开发者论坛。</p>
+</main>
